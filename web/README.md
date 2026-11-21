@@ -1,6 +1,6 @@
 # 浏览器虚拟开发板使用与接口
 
-更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-4`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
+更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-5`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
 
 ## 启动与升级
 

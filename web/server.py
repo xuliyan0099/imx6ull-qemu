@@ -5,13 +5,18 @@ from aiohttp import web, WSMsgType
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / 'web/static'
 IMAGE_DIR = Path(os.environ.get('IM6_IMAGE_DIR', str(ROOT / 'images'))).resolve()
+FREERTOS_DIR = Path(os.environ.get('IM6_FREERTOS_DIR', '/mnt/d/Workspace/FreeRTOS/IMX6ULL/build')).resolve()
 
 def image_path(name):
     path = IMAGE_DIR / name
     return path if path.is_file() else ROOT / 'images' / name
 TOKEN = secrets.token_urlsafe(24)
-SERVICE_VERSION = '2026-11-21-official-linux-hardware-4'
+SERVICE_VERSION = '2026-11-21-official-linux-hardware-5'
 PORT = int(os.environ.get('IM6_WEB_PORT', '8765'))
+BIND_HOST = os.environ.get('IM6_BIND_HOST', '127.0.0.1')
+ALLOWED_HOSTS = {item.strip() for item in os.environ.get(
+    'IM6_ALLOWED_HOSTS', f'localhost:{PORT},127.0.0.1:{PORT}').split(',') if item.strip()}
+ALLOWED_ORIGINS = {f'http://{host}' for host in ALLOWED_HOSTS}
 VNC_DISPLAY = int(os.environ.get('IM6_VNC_DISPLAY', '77'))
 DISPLAY_MODE = os.environ.get('IM6_DISPLAY', 'vnc')
 
@@ -82,7 +87,7 @@ class Board:
             if profile in ('freertos', 'freertos-gui', 'freertos-gui-emmc'): args += ['-watchdog-action','none']
             else: args += ['-nic','user,model=imx.enet','-nic','user,model=imx.enet']
             if profile in ('freertos-gui', 'freertos-gui-emmc'):
-                elf = Path('/mnt/d/Workspace/FreeRTOS/IMX6ULL/build/FreeRTOSIMX6ULL.elf')
+                elf = FREERTOS_DIR / 'FreeRTOSIMX6ULL.elf'
                 app = elf.with_name('FreeRTOSIMX6ULL-app.bin')
                 manifest = json.loads(elf.with_name('FreeRTOSIMX6ULL-images.json').read_text())
                 if hashlib.sha256(elf.read_bytes()).hexdigest() != manifest['sha256'][elf.name]:
@@ -168,8 +173,8 @@ class Board:
                     await send('go 0x900020')
                 await until('等待调试器加载'.encode(), 60)
                 self.boot_message = '验证 DDR 镜像'
-                elf = '/mnt/d/Workspace/FreeRTOS/IMX6ULL/build/FreeRTOSIMX6ULL.elf'
-                app = Path('/mnt/d/Workspace/FreeRTOS/IMX6ULL/build/FreeRTOSIMX6ULL-app.bin')
+                elf = str(FREERTOS_DIR / 'FreeRTOSIMX6ULL.elf')
+                app = FREERTOS_DIR / 'FreeRTOSIMX6ULL-app.bin'
                 dumped = self.work / 'ddr-app.bin'
                 end = 0x80000000 + app.stat().st_size
                 async def gdb(*commands):
@@ -276,9 +281,9 @@ class Board:
 board = Board()
 @web.middleware
 async def guard(request, handler):
-    if request.host not in (f'localhost:{PORT}', f'127.0.0.1:{PORT}'): raise web.HTTPForbidden()
+    if request.host not in ALLOWED_HOSTS: raise web.HTTPForbidden()
     origin = request.headers.get('Origin')
-    if origin and origin not in (f'http://localhost:{PORT}',f'http://127.0.0.1:{PORT}'): raise web.HTTPForbidden()
+    if origin and origin not in ALLOWED_ORIGINS: raise web.HTTPForbidden()
     if request.path.startswith('/api') or request.path.startswith('/ws'):
         if request.query.get('token') != TOKEN and request.headers.get('X-Token') != TOKEN: raise web.HTTPForbidden()
     return await handler(request)
@@ -337,7 +342,7 @@ async def vnc_ws(request):
 async def cleanup(app): await board.stop()
 app = web.Application(middlewares=[guard]); app.router.add_get('/',index); app.router.add_get('/token',token); app.router.add_get('/version',version); app.router.add_get('/api/status',status); app.router.add_post('/api/{action}',action); app.router.add_get('/ws/serial',serial_ws); app.router.add_get('/ws/vnc',vnc_ws); app.router.add_static('/static/',STATIC); app.on_cleanup.append(cleanup)
 if __name__ == '__main__':
-    web.run_app(app,host='127.0.0.1',port=PORT,print=lambda s: print(s,flush=True))
+    web.run_app(app,host=BIND_HOST,port=PORT,print=lambda s: print(s,flush=True))
 
 
 

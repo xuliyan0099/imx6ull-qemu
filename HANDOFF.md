@@ -2,7 +2,23 @@
 
 更新日期为 2026-11-21。项目位于 `D:\Workspace\StudyNote\IM6\qemu`，WSL 路径为 `/mnt/d/Workspace/StudyNote/IM6/qemu`。运行平台为 Windows + WSL2 Ubuntu-24.04，QEMU 基于 11.1.0，机型为 `mcimx6ull-alientek`。
 
-当前服务版本为 `2026-11-21-official-linux-hardware-4`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
+当前服务版本为 `2026-11-21-official-linux-hardware-5`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
+
+## BeeLink 局域网部署
+
+BeeLink（fnOS，Debian 12，Ryzen 7 7735HS）已经用 Docker 跑起同一套虚拟板：
+
+| 项 | 值 |
+| --- | --- |
+| 访问地址 | `http://192.168.1.52:8765/`、`http://192.168.1.15:8765/` |
+| 远端项目 | `/vol1/im6-qemu`，挂载为容器内 `/opt/im6` |
+| 容器/镜像 | `im6-qemu` / `im6-qemu-runtime:latest`，`--restart unless-stopped` |
+| 部署入口 | `deploy/beelink/run.sh`、`deploy/beelink/Dockerfile` |
+| 启动 | `ssh beelink "sudo bash /vol1/im6-qemu/deploy/beelink/run.sh"` |
+| 强制重建 | `ssh beelink "IM6_REBUILD=1 sudo bash /vol1/im6-qemu/deploy/beelink/run.sh"` |
+| 已验证截图 | `runs/linux-beelink.jpg`、`runs/freertos-beelink.png` |
+
+容器用 Ubuntu 24.04 和阿里云 HTTP APT 源构建，装了 QEMU 运行库、GTK3 依赖、Python aiohttp、`gdb-multiarch` 和 `arm-none-eabi-objcopy`。`run.sh` 在 root 下直接调用 Docker，非 root 自动加 `sudo`，已有镜像时跳过重建。BeeLink 是 x86 宿主，ARM guest 没有 KVM，仍为 TCG 单 vCPU；VNC 由容器内 QEMU 的 `127.0.0.1:5977` 经网页代理输出。8GB eMMC 与 2GB rootfs 都在 `/vol1/im6-qemu/images`，不依赖 WSL 的 `/opt/im6/images`。
 
 ## 接手时先看
 

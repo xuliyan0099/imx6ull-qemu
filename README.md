@@ -24,7 +24,7 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 
 ## 启动
 
-双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-21-official-linux-hardware-4`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
+双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-21-official-linux-hardware-5`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
 
 | 配置 ID | 页面用途 | QEMU 文件 | 启动与输入 |
 | --- | --- | --- | --- |
@@ -39,6 +39,31 @@ LCD 通过 QEMU VNC 和 noVNC 实时显示。鼠标采用清晰的箭头光标�
 x86 Windows 上没有 ARM KVM，QEMU 只能 TCG 单 vCPU 模拟。默认已启用 `tb-size=512`、VNC `lossy=on`、noVNC 低画质/低压缩级别和 500 ms 状态轮询。官方 Linux 冷启动约 1 分 51 秒，FreeRTOS 图形配置约 100% 单核属于 guest 自身运行；如果本地觉得卡，优先用 GTK 启动器，性能取舍详见 [浏览器使用手册](web/README.md#性能取舍)。
 
 启动器默认把 `IM6_IMAGE_DIR` 指向 `/opt/im6/images`，优先读取 WSL ext4 中的 rootfs；该目录不存在对应文件时回退到项目 `images/`。首次准备可运行 `bash scripts/setup-wsl-images.sh`，它只复制 2GB rootfs 和启动资产，8GB eMMC 基础镜像仍留在 D 盘。
+
+## BeeLink 局域网部署
+
+BeeLink（fnOS，Debian 12，Ryzen 7 7735HS）通过 Docker 常驻运行同一套网页虚拟板，局域网访问：
+
+```text
+http://192.168.1.52:8765/    # WiFi
+http://192.168.1.15:8765/    # Ethernet
+```
+
+项目数据放在 `/vol1/im6-qemu`，容器名为 `im6-qemu`，镜像为 `im6-qemu-runtime:latest`，启动策略 `--restart unless-stopped`。启动或重建：
+
+```bash
+ssh beelink "sudo bash /vol1/im6-qemu/deploy/beelink/run.sh"
+# 强制重建镜像
+ssh beelink "IM6_REBUILD=1 sudo bash /vol1/im6-qemu/deploy/beelink/run.sh"
+```
+
+`deploy/beelink/Dockerfile` 基于 Ubuntu 24.04，安装 QEMU 运行库、Python aiohttp、GTK3 依赖和 ARM GDB/objcopy；APT 走阿里云 HTTP 镜像，避免 BeeLink 访问 `archive.ubuntu.com` 只有约 32 KB/s。容器把 `/vol1/im6-qemu` 挂到 `/opt/im6`，端口 `0.0.0.0:8765`，`IM6_ALLOWED_HOSTS` 自动加入本机 IP。
+
+BeeLink 是 x86 宿主，ARM guest 仍只能 TCG 单 vCPU，不使用 `/dev/kvm`。已在该机验证出厂 Linux 桌面（`runs/linux-beelink.jpg`）和 FreeRTOS LVGL 主界面（`runs/freertos-beelink.png`），两者均为 800×480、原厂 systemui/LVGL 实际帧缓冲截图。触摸、以太网沿用同一 QEMU 机型和模型；音频、摄像头、CAN 仍未完整模拟。
+
+![BeeLink 出厂 Linux 桌面](runs/linux-beelink.jpg)
+
+![BeeLink FreeRTOS LVGL 主界面](runs/freertos-beelink.png)
 
 ## 正点原子 I.MX6ULL MINI 出厂 Linux 启动路径
 
