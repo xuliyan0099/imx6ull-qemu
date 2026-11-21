@@ -2,7 +2,7 @@
 
 更新日期为 2026-11-21。项目位于 `D:\Workspace\StudyNote\IM6\qemu`，WSL 路径为 `/mnt/d/Workspace/StudyNote/IM6/qemu`。运行平台为 Windows + WSL2 Ubuntu-24.04，QEMU 基于 11.1.0，机型为 `mcimx6ull-alientek`。
 
-当前服务版本为 `2026-11-21-official-linux-hardware-5`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
+当前服务版本为 `2026-11-22-official-linux-audio-1`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
 
 ## BeeLink 局域网部署
 
@@ -208,16 +208,18 @@ usb 1-1: new high-speed USB device number 2 using ci_hdrc
 lsusb: Bus 001 Device 002: ID 46f4:0002
 ```
 
-但原厂 4.1.15 内核没有编入 `snd-usb-audio`，rootfs 也没有 `/lib/modules`，因此 `dmesg` 仍为 `No soundcards found`。这说明 **QEMU 设备链路已通，guest 内核缺驱动**；换编入 USB Audio Class 的内核即可使用 `/audio.wav` 或 ALSA 后端。服务端支持 `IM6_AUDIO_BACKEND=none|wav|alsa`、`IM6_AUDIO_DEVICE`、`IM6_AUDIO_FILE`，`/audio.wav` 为下载入口，`/version` 返回 `audio`。BeeLink 的 `run.sh` 在存在 `/dev/snd` 时自动选 ALSA 并映射设备，否则可用 WAV。
+但原厂 4.1.15 配置是 `CONFIG_SND_USB_AUDIO=m`，rootfs 的 `/lib/modules` 却是空目录，且 `CONFIG_MODVERSIONS=y`、`CONFIG_MODULE_FORCE_LOAD` 未开，无法拿通用内核模块直接 `insmod`。因此 `dmesg` 仍为 `No soundcards found`。这说明 **QEMU 设备链路已通，guest 缺与内核完全同源的驱动模块**；换内建 USB Audio Class 的内核或补编同源模块即可使用 `/audio.wav` 或 ALSA 后端。服务端支持 `IM6_AUDIO_BACKEND=none|wav|alsa`、`IM6_AUDIO_DEVICE`、`IM6_AUDIO_FILE`，`/audio.wav` 为下载入口，`/version` 返回 `audio`。BeeLink 的 `run.sh` 默认 `wav`，存在 `/dev/snd` 时可显式用 ALSA 并映射设备。
 
 **以太网**使用 QEMU user-mode NAT，Linux profile 两条 `-nic user,model=imx.enet`。guest 实测：
 
 ```
 eth0  inet addr:10.0.2.15  Mask:255.255.255.0
 ping -c 2 10.0.2.2  → 2 received, 0% packet loss
+busybox wget http://example.com/  → 577 bytes
+ping -c 2 223.5.5.5  → 2 received, 0% packet loss
 ```
 
-双 FEC 是 SoC 能力，MINI 实板只引出一路 RJ45。当前没有 TAP/bridge/局域网直连；需要 guest 被局域网访问时再补宿主 bridge 和 `qemu-bridge-helper` 权限。
+`eth1` 同样拿到 `10.0.2.15`（两条独立 slirp 网络），证明第二个 FEC 也能收发。双 FEC 是 SoC 能力，MINI 实板只引出一路 RJ45。当前没有 TAP/bridge/局域网直连；需要 guest 被局域网访问时再补宿主 bridge 和 `qemu-bridge-helper` 权限。
 
 ## 已知问题与后续工作
 
@@ -229,7 +231,8 @@ ping -c 2 10.0.2.2  → 2 received, 0% packet loss
 | Goodix 子集 | 单点、寄存器及事件队列可用，完整复位地址选择、固件更新、多点及电气时序待实现 |
 | 用户 KEY 未连接 | 先核对可信原理图或固件接线，再实现输入及释放 |
 | 存储与 DDR 简化 | SD 卡语义替身，DDR 寄存器行为及自检，完整 eMMC 和电气训练待扩展 |
-| 原厂外设缺口 | USB Audio 设备已高规格枚举，但原厂内核无 `snd-usb-audio`；摄像头、CAN、ADC 等完整链路待实现 |
+| 原厂外设缺口 | USB Audio 设备已高规格枚举；原厂内核 `CONFIG_SND_USB_AUDIO=m` 但无 `/lib/modules` 模块且 `CONFIG_MODVERSIONS=y`，需同源内核补编模块或换内建驱动内核 |
+| 其他外设 | 摄像头、CAN、ADC 等完整链路待实现 |
 | 以太网边界 | 已通 user-mode NAT；TAP/bridge、hostfwd、局域网直连未实现 |
 | 原厂 DTB 兼容性 | 当前为 QEMU 适配版，需要逐项补硬件才能验证原始 DTB |
 | 构建可重复性 | 两个新入口完整从零重建、基础补丁系列整理待完成 |

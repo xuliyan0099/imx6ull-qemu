@@ -1,6 +1,6 @@
 # 浏览器虚拟开发板使用与接口
 
-更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-5`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
+更新日期为 2026-11-22，当前服务版本为 `2026-11-22-official-linux-audio-1`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
 
 ## 启动与升级
 
@@ -23,7 +23,7 @@ IM6_IMAGE_DIR=/opt/im6/images PYTHONPATH=web/deps python3 web/server.py
 
 默认 HTTP 端口为 8765，VNC display 为 77，即 TCP 5977。直接启动 server 时可设置 `IM6_WEB_PORT`、`IM6_VNC_DISPLAY`、`IM6_IMAGE_DIR`，Windows 启动器固定使用 8765、VNC display 77 和 `/opt/im6/images`。其他端口的服务继续独立运行。端口由其他程序占用时会报错。
 
-音频相关变量：`IM6_AUDIO_BACKEND=none|wav|alsa`，默认 `wav`；`IM6_AUDIO_DEVICE=default|plughw:X,Y`；`IM6_AUDIO_FILE` 为 WAV 输出路径，默认 `runs/audio.wav`。Linux profile 会追加 `usb-audio` 设备。原厂 4.1.15 内核没有 `snd-usb-audio`，当前只能看到 USB 设备枚举，不能生成 sound card。
+音频相关变量：`IM6_AUDIO_BACKEND=none|wav|alsa`，默认 `wav`；`IM6_AUDIO_DEVICE=default|plughw:X,Y`；`IM6_AUDIO_FILE` 为 WAV 输出路径，默认 `runs/audio.wav`。Linux profile 会追加 `usb-audio` 设备。原厂 4.1.15 配置为 `CONFIG_SND_USB_AUDIO=m`，但 rootfs 没有对应模块，当前只能看到 USB 设备枚举，不能生成 sound card。
 
 ## 运行依赖
 

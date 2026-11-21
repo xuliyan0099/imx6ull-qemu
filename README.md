@@ -17,7 +17,7 @@
 | 存储   | 8GB eMMC，另有 TF 卡接口                                   |
 | 显示   | 1 路 RGB LCD；项目当前按 7 寸 800×480 桌面验证                   |
 | 触摸   | Goodix 电容触摸；QEMU 使用 GT1158/gt9xx 兼容模型                |
-| 网络   | 1 路 10/100M 以太网；QEMU 双 FEC + user-mode NAT，已实测 guest 获取 10.0.2.15 并 ping 10.0.2.2 |
+| 网络   | 1 路 10/100M 以太网；QEMU 双 FEC + user-mode NAT，已实测 `10.0.2.15`、ping 网关/公网、HTTP 出站 |
 | 声音   | MINI 无板载 codec；QEMU 增加 USB Audio（46f4:0002）和 `none/wav/alsa` 后端，guest 以 high-speed 枚举 |
 | 其他外设 | USB Host/OTG、CAN、RS485、摄像头、SDIO WiFi、蜂鸣器、用户按键等       |
 
@@ -29,7 +29,7 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 
 ## 启动
 
-双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-21-official-linux-hardware-5`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
+双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-audio-1`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
 
 
 
@@ -86,8 +86,8 @@ BeeLink 是 x86 宿主，ARM guest 仍只能 TCG 单 vCPU，不使用 `/dev/kvm`
 
 * QEMU 侧新增 `usb-audio` high-speed 支持；guest `lsusb` 可见 `46f4:0002`，内核日志为 `usb 1-1: new high-speed USB device`。
 * `web/server.py` 支持 `IM6_AUDIO_BACKEND=none|wav|alsa`、`IM6_AUDIO_DEVICE=default|plughw:X,Y`、`IM6_AUDIO_FILE=/path/audio.wav`，并暴露 `/audio.wav`。
-* BeeLink 有 `/dev/snd` 时 `run.sh` 自动用 ALSA 并映射设备；否则用 `wav` 或 `none`。
-* 原厂 Linux 4.1.15 内核未编入 `snd-usb-audio`，rootfs 也没有 `/lib/modules`，所以当前只完成 USB 设备枚举，guest 仍显示 `No soundcards found`。要真正出声，需要换一个编入 USB Audio Class 的内核；QEMU 侧和音频后端已就绪。
+* BeeLink 有 `/dev/snd` 时 `run.sh` 可用 ALSA 并映射设备；默认用 `wav`，避免容器内无声卡时 QEMU 启动失败。
+* 原厂 Linux 4.1.15 配置是 `CONFIG_SND_USB_AUDIO=m`，但 rootfs 的 `/lib/modules` 是空目录，没有对应 `.ko`，所以当前只完成 USB 设备枚举，guest 仍显示 `No soundcards found`。配置文件、模块版本和符号 CRC 都需与原厂内核一致，不能拿通用内核模块直接加载。要真正出声，需要原厂同源内核补编模块，或换一个内建 USB Audio Class 的内核；QEMU 侧和音频后端已就绪。
 
 手动启用：
 
@@ -102,7 +102,9 @@ IM6_AUDIO_BACKEND=alsa IM6_AUDIO_DEVICE=plughw:0,3 bash deploy/beelink/run.sh
 
 ```
 eth0  inet addr:10.0.2.15  Mask:255.255.255.0
-ping -c 2 10.0.2.2   # 2 packets transmitted, 2 received, 0% packet loss
+ping -c 2 10.0.2.2          # 2 received, 0% packet loss
+busybox wget http://example.com/   # 577 bytes，出站 HTTP 通
+ping -c 2 223.5.5.5         # 2 received, 0% packet loss
 ```
 
 这是出站 NAT，不是局域网桥接；MINI 实板只有一路 RJ45。若需要 guest 暴露到局域网，需宿主建 TAP/bridge 并给 QEMU 加权限，当前未默认启用。
@@ -135,8 +137,8 @@ Windows 启动器 → WSL aiohttp 服务 → QEMU BootROM → 现有 U-Boot
 | FreeRTOS 图形与触摸          | `experiments/graphics/boot-test.log`、`experiments/graphics/screen.png`      |
 | FreeRTOS eMMC、DS0、RESET | `web/tests/smoke_freertos.py`，已有启动和复位实测                                     |
 | 图形 FreeRTOS eMMC、RESET  | `web/tests/smoke_graphics.py`，已有启动和复位实测                                     |
-| USB Audio               | guest `lsusb` 见 `46f4:0002`，`usb 1-1: new high-speed USB device`；原厂内核无 `snd-usb-audio`，故无声卡 |
-| 以太网                     | guest 自动取得 `10.0.2.15`，`ping 10.0.2.2` 2/2 通过；QEMU 用户态 NAT，MINI 实板仅一路 RJ45            |
+| USB Audio               | guest `lsusb` 见 `46f4:0002`，`usb 1-1: new high-speed USB device`；原厂内核配置有 `SND_USB_AUDIO=m` 但缺模块，故无声卡 |
+| 以太网                     | guest 自动取得 `10.0.2.15`，ping 网关/`223.5.5.5`、`busybox wget example.com` 均通过；QEMU 用户态 NAT，MINI 实板仅一路 RJ45 |
 
 证据对应各自测试阶段。文档更新期间进行了文件、入口和链接核对，系统运行结果沿用已有实测记录。
 
