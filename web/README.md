@@ -1,6 +1,6 @@
 # 浏览器虚拟开发板使用与接口
 
-更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-3`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
+更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-4`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
 
 ## 启动与升级
 
@@ -18,10 +18,10 @@ WSL 手动启动可使用以下命令。
 
 ```bash
 cd /mnt/d/Workspace/StudyNote/IM6/qemu
-PYTHONPATH=web/deps python3 web/server.py
+IM6_IMAGE_DIR=/opt/im6/images PYTHONPATH=web/deps python3 web/server.py
 ```
 
-默认 HTTP 端口为 8765，VNC display 为 77，即 TCP 5977。直接启动 server 时可设置 `IM6_WEB_PORT`、`IM6_VNC_DISPLAY`，Windows 启动器固定使用 8765 和 VNC display 77。其他端口的服务继续独立运行。端口由其他程序占用时会报错。
+默认 HTTP 端口为 8765，VNC display 为 77，即 TCP 5977。直接启动 server 时可设置 `IM6_WEB_PORT`、`IM6_VNC_DISPLAY`、`IM6_IMAGE_DIR`，Windows 启动器固定使用 8765、VNC display 77 和 `/opt/im6/images`。其他端口的服务继续独立运行。端口由其他程序占用时会报错。
 
 ## 运行依赖
 
@@ -97,6 +97,22 @@ python3 web/tests/smoke_graphics.py 8765
 ```
 
 精简测试固定使用 8765，finally 会 stop 当前会话，执行前应确认空闲。图形测试支持端口参数且有空闲检查。已有实测覆盖自动启动、精简 DS0、精简及图形 eMMC RESET。上述脚本均需真实 QEMU，当前没有计划初稿所列的 unittest 单元测试文件。
+
+## 镜像目录
+
+默认从项目内 `images/` 读取镜像。Windows/WSL 启动器设置 `IM6_IMAGE_DIR=/opt/im6/images`，服务优先使用该目录，文件不存在时回退到项目 `images/`，所以可以只把热点镜像放进 WSL 的 ext4 虚拟盘，8GB eMMC 基础镜像继续留在 D 盘。
+
+```bash
+bash scripts/setup-wsl-images.sh
+```
+
+脚本会创建 `/opt/im6/images`，复制 2GB 出厂 rootfs、zImage、两个 DTB、ramdisk 和 `tf.img`；需要复制两套 8GB eMMC 基础镜像时加 `IM6_COPY_EMMC=1`。手工启动 server 时显式传入：
+
+```bash
+IM6_IMAGE_DIR=/opt/im6/images PYTHONPATH=web/deps python3 web/server.py
+```
+
+`/mnt/d` 是 WSL 的跨系统文件层，随机读比 ext4 慢；把 rootfs 放进 `/opt/im6/images` 主要改善出厂 Linux 冷启动和 rootfs 读取。画面卡顿仍优先按下一节的 GTK/原生 VNC 处理。
 
 ## 性能取舍
 

@@ -4,8 +4,13 @@ from aiohttp import web, WSMsgType
 
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / 'web/static'
+IMAGE_DIR = Path(os.environ.get('IM6_IMAGE_DIR', str(ROOT / 'images'))).resolve()
+
+def image_path(name):
+    path = IMAGE_DIR / name
+    return path if path.is_file() else ROOT / 'images' / name
 TOKEN = secrets.token_urlsafe(24)
-SERVICE_VERSION = '2026-11-21-official-linux-hardware-3'
+SERVICE_VERSION = '2026-11-21-official-linux-hardware-4'
 PORT = int(os.environ.get('IM6_WEB_PORT', '8765'))
 VNC_DISPLAY = int(os.environ.get('IM6_VNC_DISPLAY', '77'))
 DISPLAY_MODE = os.environ.get('IM6_DISPLAY', 'vnc')
@@ -41,26 +46,26 @@ class Board:
         self.state = 'starting'; self.error = ''; self.profile = profile; self.history.clear()
         self.work = Path(tempfile.mkdtemp(prefix='im6-board-'))
         try:
-            image = ROOT / 'images' / ('uboot-emmc.img' if profile in ('linux', 'linux-official') else 'emmc-uboot-freertos.img')
+            image = image_path('uboot-emmc.img' if profile in ('linux', 'linux-official') else 'emmc-uboot-freertos.img')
             overlay = self.work / 'emmc.qcow2'
             maker = await asyncio.create_subprocess_exec('qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(image),str(overlay),stderr=asyncio.subprocess.PIPE)
             _, err = await maker.communicate()
             if maker.returncode: raise RuntimeError('创建 overlay 失败: ' + err.decode(errors='replace'))
             if profile == 'linux':
                 fat = self.work / 'fat'; fat.mkdir()
-                for name, target in [('zImage','zimage-official'),('board-alientek-full.dtb','board-alientek-full.dtb'),('ramdisk.uimg','ramdisk.uimg')]: shutil.copyfile(ROOT / 'images' / name, fat / target)
+                for name, target in [('zImage','zimage-official'),('board-alientek-full.dtb','board-alientek-full.dtb'),('ramdisk.uimg','ramdisk.uimg')]: shutil.copyfile(image_path(name), fat / target)
                 sd = 'fat:rw:' + str(fat)
                 sd_format = 'raw'
             elif profile == 'linux-official':
                 sd = str(self.work / 'official-rootfs.qcow2'); sd_format = 'qcow2'
-                base = ROOT / 'images/official-rootfs.ext4'
+                base = image_path('official-rootfs.ext4')
                 if not base.is_file(): raise RuntimeError('缺少出厂根文件系统镜像；请先运行 scripts/build-official-rootfs.sh')
                 maker = await asyncio.create_subprocess_exec('qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(base),sd,stderr=asyncio.subprocess.PIPE)
                 _, err = await maker.communicate()
                 if maker.returncode: raise RuntimeError('创建根文件系统 overlay 失败: ' + err.decode(errors='replace'))
             else:
                 tf = self.work / 'tf.qcow2'
-                maker = await asyncio.create_subprocess_exec('qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(ROOT / 'images/tf.img'),str(tf))
+                maker = await asyncio.create_subprocess_exec('qemu-img','create','-q','-f','qcow2','-F','raw','-b',str(image_path('tf.img')),str(tf))
                 if await maker.wait(): raise RuntimeError('创建 TF overlay 失败')
                 sd = str(tf); sd_format = 'qcow2'
             qemu_binary = {
@@ -73,7 +78,7 @@ class Board:
                             else ['-display','none','-vnc',f'127.0.0.1:{VNC_DISPLAY},lossy=on'])
             args = [str(ROOT/qemu_binary),'-accel','tcg,thread=multi,tb-size=512','-M','mcimx6ull-alientek','-m','512','-smp','1', '-drive',f'if=sd,index=0,format={sd_format},file={sd}{sd_cache}', '-drive',f'if=sd,index=1,format=qcow2,file={overlay},cache=unsafe', '-qmp',f'unix:{self.work}/qmp,server=on,wait=off','-serial',f'unix:{self.work}/serial,server=on,wait=on','-L','/usr/share/qemu',*display_args,'-monitor','none']
             if profile == 'linux-official':
-                args += ['-device',f'loader,file={ROOT}/images/zImage,addr=0x80800000,force-raw=on','-device',f'loader,file={ROOT}/images/board-alientek-official-gui.dtb,addr=0x83000000,force-raw=on']
+                args += ['-device',f'loader,file={image_path("zImage")},addr=0x80800000,force-raw=on','-device',f'loader,file={image_path("board-alientek-official-gui.dtb")},addr=0x83000000,force-raw=on']
             if profile in ('freertos', 'freertos-gui', 'freertos-gui-emmc'): args += ['-watchdog-action','none']
             else: args += ['-nic','user,model=imx.enet','-nic','user,model=imx.enet']
             if profile in ('freertos-gui', 'freertos-gui-emmc'):

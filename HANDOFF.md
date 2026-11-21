@@ -2,7 +2,7 @@
 
 更新日期为 2026-11-21。项目位于 `D:\Workspace\StudyNote\IM6\qemu`，WSL 路径为 `/mnt/d/Workspace/StudyNote/IM6/qemu`。运行平台为 Windows + WSL2 Ubuntu-24.04，QEMU 基于 11.1.0，机型为 `mcimx6ull-alientek`。
 
-当前服务版本为 `2026-11-21-official-linux-hardware-3`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。
+当前服务版本为 `2026-11-21-official-linux-hardware-4`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
 
 ## 接手时先看
 
