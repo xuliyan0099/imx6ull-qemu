@@ -14,6 +14,8 @@ RUN sed -i \
       libcairo2 \
       libgdk-pixbuf-2.0-0 \
       libx11-6 \
+      libasound2t64 \
+      alsa-utils \
       python3 \
       python3-aiohttp \
       gdb-multiarch \

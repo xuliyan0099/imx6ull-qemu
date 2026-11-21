@@ -111,11 +111,13 @@ WSL 在项目根目录运行。QEMU 源码包为 `../qemu-src/qemu-11.1.0.tar.xz
 | 入口 | 输出与参数 | 验证范围 |
 | --- | --- | --- |
 | `scripts/build-official-rootfs.sh` | `images/official-rootfs.ext4`，目标已存在时退出，临时目录 `/tmp/im6-official-rootfs-*` | 已生成并用于冷启动 |
-| `scripts/build-qemu-official.sh` | official 二进制及图形 DTB；`IM6_OFFICIAL_BUILD` 默认 `/tmp/im6-official-qemu` | 增量编译、运行及脚本语法通过，完整从零构建待回归 |
+| `scripts/build-qemu-official.sh` | official 二进制及图形 DTB；`IM6_OFFICIAL_BUILD` 默认 `/tmp/im6-official-qemu`；`IM6_AUDIO=0` 关闭音频补丁 | 已做增量编译、USB Audio 高规格枚举、原厂 Linux 冷启动验证；完整从零构建待回归 |
 | `experiments/graphics/build.sh` | graphics 二进制；`IM6_GRAPHICS_BUILD` 默认 `/tmp/im6-graphics-rebuild` | 干净源码组合补丁应用已有验证，完整从零构建待回归 |
 | `scripts/build-qemu-patched.sh` | 基础 linux 二进制；`BUILD` 默认 `/tmp/qemu-11.1.0-build` | 历史系列有重叠及源码不一致问题，待整理 |
 
 两个图形构建入口都先应用 `qemu-graphics.patch`，再应用 `0002`、`0007`、`0009`。official 构建随后把 `src/im6-goodix-linux.c` 复制到构建树的 `hw/arm/im6-gt1158.c`，并替换机型接线为 0x5d + GPIO1_IO09。该文件名是沿用组合补丁的构建声明。official 二进制通过临时文件和 rename 更新。两个入口支持 `IM6_JOBS`，默认 4，并要求选择新的源码目录。
+
+official 构建默认再调用 `scripts/patch-qemu-audio.py`：复制 Goodix、补充 `hw/arm/meson.build`、给 USB Audio 增加 high-speed 描述符、在 EHCI `PORTSC` 置 bit 27，并让 QEMU 支持 `alsa` 后端。宿主有 `libasound2-dev` 时 configure 自动加 `--enable-alsa`。`IM6_AUDIO=0` 可跳过音频补丁，用于排除音频回归。
 
 `src/mcimx6ull-alientek.c` 保留早期机型实现。新图形构建的机型内容来自组合补丁，后续修改需沿构建入口落实。原系列 `0008` 与 `0003/0005` 存在重叠，`0006` 与独立机型源文件存在差异。`0009` 修复大块 SDHCI DMA 跨边界行为，应保留对应行为。
 
@@ -197,6 +199,26 @@ python3 web/tests/smoke_graphics.py 8765
 | `runs/official-linux-boot.log` | 历史 BusyBox 启动 |
 | `runs/freertos-emmc-boot.log` | 历史精简 FreeRTOS eMMC 启动 |
 
+## 声音与以太网
+
+**声音**走 USB Audio，不模拟 ALPHA 的 WM8960，因为 MINI 实板无板载 codec。QEMU 侧修复了 USB Audio 只能 full-speed 的问题：设备描述符增加 high-speed 版本，EHCI `PORTSC` 上报 bit 27。原厂 Linux 启动后可看到：
+
+```
+usb 1-1: new high-speed USB device number 2 using ci_hdrc
+lsusb: Bus 001 Device 002: ID 46f4:0002
+```
+
+但原厂 4.1.15 内核没有编入 `snd-usb-audio`，rootfs 也没有 `/lib/modules`，因此 `dmesg` 仍为 `No soundcards found`。这说明 **QEMU 设备链路已通，guest 内核缺驱动**；换编入 USB Audio Class 的内核即可使用 `/audio.wav` 或 ALSA 后端。服务端支持 `IM6_AUDIO_BACKEND=none|wav|alsa`、`IM6_AUDIO_DEVICE`、`IM6_AUDIO_FILE`，`/audio.wav` 为下载入口，`/version` 返回 `audio`。BeeLink 的 `run.sh` 在存在 `/dev/snd` 时自动选 ALSA 并映射设备，否则可用 WAV。
+
+**以太网**使用 QEMU user-mode NAT，Linux profile 两条 `-nic user,model=imx.enet`。guest 实测：
+
+```
+eth0  inet addr:10.0.2.15  Mask:255.255.255.0
+ping -c 2 10.0.2.2  → 2 received, 0% packet loss
+```
+
+双 FEC 是 SoC 能力，MINI 实板只引出一路 RJ45。当前没有 TAP/bridge/局域网直连；需要 guest 被局域网访问时再补宿主 bridge 和 `qemu-bridge-helper` 权限。
+
 ## 已知问题与后续工作
 
 | 状态 | 影响与后续验证 |
@@ -207,7 +229,8 @@ python3 web/tests/smoke_graphics.py 8765
 | Goodix 子集 | 单点、寄存器及事件队列可用，完整复位地址选择、固件更新、多点及电气时序待实现 |
 | 用户 KEY 未连接 | 先核对可信原理图或固件接线，再实现输入及释放 |
 | 存储与 DDR 简化 | SD 卡语义替身，DDR 寄存器行为及自检，完整 eMMC 和电气训练待扩展 |
-| 原厂外设缺口 | 音频、摄像头、CAN、ADC 等完整链路待实现 |
+| 原厂外设缺口 | USB Audio 设备已高规格枚举，但原厂内核无 `snd-usb-audio`；摄像头、CAN、ADC 等完整链路待实现 |
+| 以太网边界 | 已通 user-mode NAT；TAP/bridge、hostfwd、局域网直连未实现 |
 | 原厂 DTB 兼容性 | 当前为 QEMU 适配版，需要逐项补硬件才能验证原始 DTB |
 | 构建可重复性 | 两个新入口完整从零重建、基础补丁系列整理待完成 |
 | 真板验证 | 同镜像刷写、自主图形 eMMC 启动尚待实板验证 |

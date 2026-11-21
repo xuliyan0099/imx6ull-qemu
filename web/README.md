@@ -23,6 +23,8 @@ IM6_IMAGE_DIR=/opt/im6/images PYTHONPATH=web/deps python3 web/server.py
 
 默认 HTTP 端口为 8765，VNC display 为 77，即 TCP 5977。直接启动 server 时可设置 `IM6_WEB_PORT`、`IM6_VNC_DISPLAY`、`IM6_IMAGE_DIR`，Windows 启动器固定使用 8765、VNC display 77 和 `/opt/im6/images`。其他端口的服务继续独立运行。端口由其他程序占用时会报错。
 
+音频相关变量：`IM6_AUDIO_BACKEND=none|wav|alsa`，默认 `wav`；`IM6_AUDIO_DEVICE=default|plughw:X,Y`；`IM6_AUDIO_FILE` 为 WAV 输出路径，默认 `runs/audio.wav`。Linux profile 会追加 `usb-audio` 设备。原厂 4.1.15 内核没有 `snd-usb-audio`，当前只能看到 USB 设备枚举，不能生成 sound card。
+
 ## 运行依赖
 
 - WSL2 Ubuntu-24.04、Python 3.12、`qemu-img`、QEMU keymaps `/usr/share/qemu`、对应 QEMU 二进制和镜像。
@@ -66,8 +68,10 @@ RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。�
 | --- | --- |
 | `GET /`、`GET /static/*` | 页面及本地资源 |
 | `GET /token` | 当前服务令牌 |
-| `GET /version` | 服务名、版本、launch_id 和 display 模式 |
+| `GET /version` | 服务名、版本、launch_id、display 模式和 `audio` 后端 |
 | `GET /api/status` | state、profile、error、boot_state、boot_message、led |
+| `GET /api/serial` | 串口历史最后 12000 字节，便于脚本取证 |
+| `GET /audio.wav` | WAV 后端的音频输出；文件不存在时 404 |
 | `POST /api/start` | JSON profile，仅接受五种固定配置 |
 | `POST /api/stop` | 停止并清理当前会话 |
 | `POST /api/pause`、`resume`、`reset` | QMP 控制 |

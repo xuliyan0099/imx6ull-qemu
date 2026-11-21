@@ -11,7 +11,7 @@ def image_path(name):
     path = IMAGE_DIR / name
     return path if path.is_file() else ROOT / 'images' / name
 TOKEN = secrets.token_urlsafe(24)
-SERVICE_VERSION = '2026-11-21-official-linux-hardware-5'
+SERVICE_VERSION = '2026-11-22-official-linux-audio-1'
 PORT = int(os.environ.get('IM6_WEB_PORT', '8765'))
 BIND_HOST = os.environ.get('IM6_BIND_HOST', '127.0.0.1')
 ALLOWED_HOSTS = {item.strip() for item in os.environ.get(
@@ -19,6 +19,9 @@ ALLOWED_HOSTS = {item.strip() for item in os.environ.get(
 ALLOWED_ORIGINS = {f'http://{host}' for host in ALLOWED_HOSTS}
 VNC_DISPLAY = int(os.environ.get('IM6_VNC_DISPLAY', '77'))
 DISPLAY_MODE = os.environ.get('IM6_DISPLAY', 'vnc')
+AUDIO_BACKEND = os.environ.get('IM6_AUDIO_BACKEND', 'wav')
+AUDIO_DEVICE = os.environ.get('IM6_AUDIO_DEVICE', 'default')
+AUDIO_FILE = Path(os.environ.get('IM6_AUDIO_FILE', str(ROOT / 'runs' / 'audio.wav'))).resolve()
 
 class Board:
     def __init__(self):
@@ -84,6 +87,16 @@ class Board:
             args = [str(ROOT/qemu_binary),'-accel','tcg,thread=multi,tb-size=512','-M','mcimx6ull-alientek','-m','512','-smp','1', '-drive',f'if=sd,index=0,format={sd_format},file={sd}{sd_cache}', '-drive',f'if=sd,index=1,format=qcow2,file={overlay},cache=unsafe', '-qmp',f'unix:{self.work}/qmp,server=on,wait=off','-serial',f'unix:{self.work}/serial,server=on,wait=on','-L','/usr/share/qemu',*display_args,'-monitor','none']
             if profile == 'linux-official':
                 args += ['-device',f'loader,file={image_path("zImage")},addr=0x80800000,force-raw=on','-device',f'loader,file={image_path("board-alientek-official-gui.dtb")},addr=0x83000000,force-raw=on']
+            if profile in ('linux', 'linux-official'):
+                AUDIO_FILE.parent.mkdir(parents=True, exist_ok=True)
+                if AUDIO_BACKEND == 'wav':
+                    audio_spec = f'wav,id=im6snd,path={AUDIO_FILE}'
+                elif AUDIO_BACKEND == 'alsa':
+                    audio_spec = f'alsa,id=im6snd,dev={AUDIO_DEVICE}'
+                else:
+                    audio_spec = 'none,id=im6snd'
+                args += ['-audiodev', audio_spec,
+                         '-device', 'usb-audio,bus=usb-bus.0,audiodev=im6snd']
             if profile in ('freertos', 'freertos-gui', 'freertos-gui-emmc'): args += ['-watchdog-action','none']
             else: args += ['-nic','user,model=imx.enet','-nic','user,model=imx.enet']
             if profile in ('freertos-gui', 'freertos-gui-emmc'):
@@ -290,8 +303,12 @@ async def guard(request, handler):
 
 async def index(request): return web.FileResponse(STATIC/'index.html')
 async def token(request): return web.json_response({'token':TOKEN})
-async def version(request): return web.json_response({'service':'im6-virtual-board','version':SERVICE_VERSION,'launch_id':os.environ.get('IM6_LAUNCH_ID',''),'display':DISPLAY_MODE})
+async def version(request): return web.json_response({'service':'im6-virtual-board','version':SERVICE_VERSION,'launch_id':os.environ.get('IM6_LAUNCH_ID',''),'display':DISPLAY_MODE,'audio':AUDIO_BACKEND})
+async def audio(request):
+    if not AUDIO_FILE.is_file(): raise web.HTTPNotFound()
+    return web.FileResponse(AUDIO_FILE, headers={'Cache-Control':'no-store'})
 async def status(request): return web.json_response({'state':board.state,'profile':board.profile,'error':board.error,'boot_state':board.boot_state,'boot_message':board.boot_message,'led':board.led_state})
+async def serial_text(request): return web.json_response({'text':bytes(board.history).decode(errors='replace')[-12000:]})
 async def action(request):
     try:
         action = request.match_info['action']
@@ -340,7 +357,7 @@ async def vnc_ws(request):
     return ws
 
 async def cleanup(app): await board.stop()
-app = web.Application(middlewares=[guard]); app.router.add_get('/',index); app.router.add_get('/token',token); app.router.add_get('/version',version); app.router.add_get('/api/status',status); app.router.add_post('/api/{action}',action); app.router.add_get('/ws/serial',serial_ws); app.router.add_get('/ws/vnc',vnc_ws); app.router.add_static('/static/',STATIC); app.on_cleanup.append(cleanup)
+app = web.Application(middlewares=[guard]); app.router.add_get('/',index); app.router.add_get('/token',token); app.router.add_get('/version',version); app.router.add_get('/api/status',status); app.router.add_get('/api/serial',serial_text); app.router.add_post('/api/{action}',action); app.router.add_get('/ws/serial',serial_ws); app.router.add_get('/ws/vnc',vnc_ws); app.router.add_get('/audio.wav',audio); app.router.add_static('/static/',STATIC); app.on_cleanup.append(cleanup)
 if __name__ == '__main__':
     web.run_app(app,host=BIND_HOST,port=PORT,print=lambda s: print(s,flush=True))
 

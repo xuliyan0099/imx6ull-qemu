@@ -27,9 +27,17 @@ if source.count(old) != 1:
     raise RuntimeError('找不到唯一的触摸接线位置')
 path.write_text(source.replace(old, new))
 PY
+if [ "${IM6_AUDIO:-1}" != "0" ]; then
+  python3 "$root/scripts/patch-qemu-audio.py" .
+fi
+alsa_flag=""
+if command -v pkg-config >/dev/null 2>&1 && pkg-config --exists alsa; then
+  alsa_flag="--enable-alsa"
+fi
 mkdir build
 cd build
-../configure --target-list=arm-softmmu --disable-werror --enable-gtk --enable-slirp --disable-docs
+../configure --target-list=arm-softmmu --disable-werror --enable-gtk --enable-slirp \
+  ${alsa_flag} --disable-docs
 ninja -j "${IM6_JOBS:-4}" qemu-system-arm
 cp qemu-system-arm "$root/bin/qemu-system-arm-official-linux.partial"
 mv "$root/bin/qemu-system-arm-official-linux.partial" "$root/bin/qemu-system-arm-official-linux"

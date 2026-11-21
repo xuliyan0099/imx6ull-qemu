@@ -29,6 +29,19 @@ else
   docker_cmd=(sudo docker)
 fi
 
+audio_backend="${IM6_AUDIO_BACKEND:-auto}"
+audio_device="${IM6_AUDIO_DEVICE:-default}"
+audio_run=()
+if [ "$audio_backend" = "auto" ]; then
+  if [ -e /dev/snd ]; then audio_backend=alsa; else audio_backend=none; fi
+fi
+if [ -e /dev/snd ]; then
+  audio_run+=(--device /dev/snd)
+elif [ "$audio_backend" = "alsa" ]; then
+  echo "未找到 /dev/snd，音频后端退化为 none" >&2
+  audio_backend=none
+fi
+
 if [ "${IM6_REBUILD:-0}" = "1" ] || ! "${docker_cmd[@]}" image inspect "$image" >/dev/null 2>&1; then
   echo "构建容器镜像 $image"
   "${docker_cmd[@]}" build --network=host -t "$image" "$project/deploy/beelink"
@@ -43,10 +56,14 @@ echo "重建容器 $container"
   --restart unless-stopped \
   -p "0.0.0.0:${port}:${port}" \
   -v "$project:/opt/im6" \
+  "${audio_run[@]}" \
   -e "IM6_BIND_HOST=0.0.0.0" \
   -e "IM6_ALLOWED_HOSTS=$hosts" \
   -e "IM6_WEB_PORT=$port" \
   -e "IM6_VNC_DISPLAY=77" \
+  -e "IM6_AUDIO_BACKEND=$audio_backend" \
+  -e "IM6_AUDIO_DEVICE=$audio_device" \
+  -e "IM6_AUDIO_FILE=/opt/im6/runs/audio.wav" \
   -e "IM6_IMAGE_DIR=/opt/im6/images" \
   -e "IM6_FREERTOS_DIR=/opt/im6/freertos" \
   -e "PYTHONPATH=/opt/im6/web/deps" \
