@@ -70,7 +70,7 @@ ssh beelink "IM6_REBUILD=1 sudo bash /vol1/im6-qemu/deploy/beelink/run.sh"
 
 `deploy/beelink/Dockerfile` 基于 Ubuntu 24.04，安装 QEMU 运行库、Python aiohttp、GTK3 依赖和 ARM GDB/objcopy；APT 走阿里云 HTTP 镜像，避免 BeeLink 访问 `archive.ubuntu.com` 只有约 32 KB/s。容器把 `/vol1/im6-qemu` 挂到 `/opt/im6`，端口 `0.0.0.0:8765`，`IM6_ALLOWED_HOSTS` 自动加入本机 IP。
 
-BeeLink 是 x86 宿主，ARM guest 仍只能 TCG 单 vCPU，不使用 `/dev/kvm`。已在该机验证出厂 Linux 桌面（`runs/linux-beelink.jpg`）和 FreeRTOS LVGL 主界面（`runs/freertos-beelink.png`），两者均为 800×480、原厂 systemui/LVGL 实际帧缓冲截图。触摸、以太网沿用同一 QEMU 机型和模型；USB Audio 设备已加入，音频输出可选 WAV 文件或 BeeLink 的 ALSA 设备，摄像头、CAN 仍未完整模拟。
+BeeLink 是 x86 宿主，ARM guest 仍只能 TCG 单 vCPU，不使用 `/dev/kvm`。已在该机验证出厂 Linux 桌面（`runs/linux-beelink.jpg`）和 FreeRTOS LVGL 主界面（`runs/freertos-beelink.png`），两者均为 800×480、原厂 systemui/LVGL 实际帧缓冲截图。触摸、以太网沿用同一 QEMU 机型和模型；USB Audio 设备已加入，音频输出默认写 WAV，也可显式切到 BeeLink 的 ALSA 设备，摄像头、CAN 仍未完整模拟。
 
 
 
