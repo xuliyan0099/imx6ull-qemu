@@ -1,0 +1,76 @@
+[    0.000000] Booting Linux on physical CPU 0x0
+[    0.000000] Linux version 4.1.15-ge48931b1 (alientek@ubuntu) (gcc version 5.3.0 (GCC) ) #1 SMP PREEMPT Wed Aug 20 19:01:59 PDT 2025
+[    0.000000] CPU: ARMv7 Processor [410fc075] revision 5 (ARMv7), cr=10c53c7d
+[    0.000000] CPU: PIPT / VIPT nonaliasing data cache, VIPT aliasing instruction cache
+[    0.000000] Machine model: Freescale i.MX6 ULL 14x14 EVK Board
+[    0.000000] debug: ignoring loglevel setting.
+[    0.000000] Reserved memory: created CMA memory pool at 0x98000000, size 128 MiB
+[    0.000000] Reserved memory: initialized node linux,cma, compatible id shared-dma-pool
+[    0.000000] Memory policy: Data cache writealloc
+[    0.000000] On node 0 totalpages: 131072
+[    0.000000] free_area_init_node: node 0, pgdat 80c3fc80, node_mem_map 97bb7000
+[    0.000000]   Normal zone: 1024 pages used for memmap
+[    0.000000]   Normal zone: 0 pages reserved
+[    0.000000]   Normal zone: 131072 pages, LIFO batch:31
+[    0.000000] PERCPU: Embedded 12 pages/cpu @97b8f000 s16780 r8192 d24180 u49152
+[    0.000000] pcpu-alloc: s16780 r8192 d24180 u49152 alloc=12*4096
+[    0.000000] pcpu-alloc: [0] 0 
+[    0.000000] Built 1 zonelists in Zone order, mobility grouping on.  Total pages: 130048
+[    0.000000] Kernel command line: console=ttymxc0,115200 rdinit=/init ignore_loglevel
+[    0.000000] PID hash table entries: 2048 (order: 1, 8192 bytes)
+[    0.000000] Dentry cache hash table entries: 65536 (order: 6, 262144 bytes)
+[    0.000000] Inode-cache hash table entries: 32768 (order: 5, 131072 bytes)
+[    0.000000] Memory: 373948K/524288K available (8556K kernel code, 451K rwdata, 2976K rodata, 528K init, 452K bss, 19268K reserved, 131072K cma-reserved, 0K highmem)
+[    0.000000] Virtual kernel memory layout:
+[    0.000000]     vector  : 0xffff0000 - 0xffff1000   (   4 kB)
+[    0.000000]     fixmap  : 0xffc00000 - 0xfff00000   (3072 kB)
+[    0.000000]     vmalloc : 0xa0800000 - 0xff000000   (1512 MB)
+[    0.000000]     lowmem  : 0x80000000 - 0xa0000000   ( 512 MB)
+[    0.000000]     pkmap   : 0x7fe00000 - 0x80000000   (   2 MB)
+[    0.000000]     modules : 0x7f000000 - 0x7fe00000   (  14 MB)
+[    0.000000]       .text : 0x80008000 - 0x80b4b314   (11533 kB)
+[    0.000000]       .init : 0x80b4c000 - 0x80bd0000   ( 528 kB)
+[    0.000000]       .data : 0x80bd0000 - 0x80c40e60   ( 452 kB)
+[    0.000000]        .bss : 0x80c43000 - 0x80cb4104   ( 453 kB)
+[    0.000000] SLUB: HWalign=64, Order=0-3, MinObjects=0, CPUs=1, Nodes=1
+[    0.000000] Preemptible hierarchical RCU implementation.
+[    0.000000] 	Additional per-CPU info printed with stalls.
+[    0.000000] 	RCU restricting CPUs from NR_CPUS=4 to nr_cpu_ids=1.
+[    0.000000] RCU: Adjusting geometry for rcu_fanout_leaf=16, nr_cpu_ids=1
+[    0.000000] NR_IRQS:16 nr_irqs:16 16
+[    0.000000] mxc_clocksource_init 3000000
+[    0.000000] Switching to timer-based delay loop, resolution 333ns
+[    0.000185] sched_clock: 32 bits at 3000kHz, resolution 333ns, wraps every 715827882841ns
+[    0.000344] clocksource mxc_timer1: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 637086815595 ns
+[    0.007600] Console: colour dummy device 80x30
+[    0.007963] Calibrating delay loop (skipped), value calculated using timer frequency.. 6.00 BogoMIPS (lpj=30000)
+[    0.008077] pid_max: default: 32768 minimum: 301
+[    0.009041] Mount-cache hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.009068] Mountpoint-cache hash table entries: 1024 (order: 0, 4096 bytes)
+[    0.022170] CPU: Testing write buffer coherency: ok
+[    0.029311] /cpus/cpu@0 missing clock-frequency property
+[    0.029560] CPU0: thread -1, cpu 0, socket 0, mpidr 80000000
+[    0.030127] Setting up static identity map for 0x80008280 - 0x800082d8
+[    0.067023] Brought up 1 CPUs
+[    0.067108] SMP: Total of 1 processors activated (6.00 BogoMIPS).
+[    0.067146] CPU: All CPU(s) started in HYP mode.
+[    0.067158] CPU: Virtualization extensions available.
+[    0.075017] devtmpfs: initialized
+[    0.088013] device-tree: Duplicate name in lcdif@021c8000, renamed to "display#1"
+[    0.093486] VFP support v0.3: implementor 41 architecture 2 part 30 variant 7 rev 5
+[    0.110708] clocksource jiffies: mask: 0xffffffff max_cycles: 0xffffffff, max_idle_ns: 19112604462750000 ns
+[    0.123560] pinctrl core: initialized pinctrl subsystem
+[    0.136644] NET: Registered protocol family 16
+[    0.149748] DMA: preallocated 256 KiB pool for atomic coherent allocations
+[    0.181279] cpuidle: using governor ladder
+[    0.211932] cpuidle: using governor menu
+[    0.242411] imx_mmdc_probe: failed to enable automatic power saving
+[    0.242966] imx-mmdc: probe of 21b0000.mmdc failed with error -16
+[    0.248105] failed to find ocotp node
+[    0.248289] failed to find ocotp node
+[    0.249262] hw-breakpoint: found 5 (+1 reserved) breakpoint and 4 watchpoint registers.
+[    0.249326] hw-breakpoint: maximum watchpoint size is 8 bytes.
+[    0.253460] imx6ul-pinctrl 20e0000.iomuxc: initialized IMX pinctrl driver
+[    0.253784] imx6ul-pinctrl 2290000.iomuxc-snvs: initialized IMX pinctrl driver
+[    0.304016] SCSI subsystem initialized
+[    0.304728] libata version 3.0

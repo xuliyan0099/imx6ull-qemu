@@ -1,0 +1,52 @@
+force_idle_bus: failed to clear bus, sda=0 scl=0
+MMC:   FSL_SDHC: 0, FSL_SDHC: 1
+*** Warning - bad CRC, using default environment
+
+Display: TFT7016 (1024x600)
+Video: 1024x600x24
+In:    serial
+Out:   serial
+Err:   serial
+switch to partitions #0, OK
+mmc1 is current device
+Net:   FEC1
+Error: FEC1 address not set.
+
+Normal Boot
+Hit any key to stop autoboot:  3  2  1  0 
+switch to partitions #0, OK
+mmc1 is current device
+switch to partitions #0, OK
+mmc1 is current device
+** No partition table - mmc 1 **
+** No partition table - mmc 1 **
+Booting from net ...
+*** ERROR: `ethaddr' not set
+*** ERROR: `ethaddr' not set
+Bad Linux ARM zImage magic!
+=> mmc dev 1
+switch to partitions #0, OK
+mmc1 is current device
+=> mmc read 0x900000 0x800 0x20
+
+MMC read: dev # 1, block # 2048, count 32 ... 32 blocks read: OK
+=> go 0x900020
+## Starting application at 0x00900020 ...
+
+==================================================
+ FreeRTOS V11.3.1  /  i.MX6ULL Cortex-A7
+ 运行地址   : 0x00900000 (片内 OCRAM, 112KB)
+ tick       : 1000 Hz (GPT1, OCR1=66000 counts)
+ 堆         : 32 KB (heap_4)
+ UART1      : 115200-8N1
+==================================================
+[main] 启动调度器，剩余堆 27808 字节
+LED #1 t=2
+LED #2 t=502
+LED #3 t=1002
+LED #4 t=1502
+SEM #1 t=2000
+LED #5 t=2002
+LED #6 t=2502
+LED #7 t=3002
+LED #8 t=3502

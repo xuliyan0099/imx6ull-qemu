@@ -1,0 +1,26 @@
+# Normalize text files to LF so QEMU patches and shell scripts survive Windows checkout.
+* text=auto eol=lf
+
+*.sh text eol=lf
+*.patch text eol=lf
+*.diff text eol=lf
+*.py text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.md text eol=lf
+*.dts text eol=lf
+*.dtsi text eol=lf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.dtb binary
+*.elf binary
+*.bin binary
+*.img binary
+*.ext4 binary
+*.cpio binary
+*.gz binary

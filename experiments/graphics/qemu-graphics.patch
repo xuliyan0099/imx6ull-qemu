@@ -1,0 +1,617 @@
+--- a/hw/misc/imx6ul_ccm.c
++++ b/hw/misc/imx6ul_ccm.c
+@@ -515,9 +515,15 @@
+         break;
+     case CLK_IPG:
+         freq = imx6ul_ccm_get_ipg_clk(s);
++        if (freq == 0) {
++            freq = 66000000;
++        }
+         break;
+     case CLK_IPG_HIGH:
+         freq = imx6ul_ccm_get_per_clk(s);
++        if (freq == 0) {
++            freq = 66000000;
++        }
+         break;
+     case CLK_32k:
+         freq = CKIL_FREQ;
+@@ -553,7 +559,7 @@
+     s->ccm[CCM_CS2CDR] = 0x000336C1;
+     s->ccm[CCM_CDCDR] = 0x33F71F92;
+     s->ccm[CCM_CHSCCDR] = 0x000248A4;
+-    s->ccm[CCM_CSCDR2] = 0x00029B48;
++    s->ccm[CCM_CSCDR2] = 0x00029148;
+     s->ccm[CCM_CSCDR3] = 0x00014841;
+     s->ccm[CCM_CDHIPR] = 0x00000000;
+     s->ccm[CCM_CTOR] = 0x00000000;
+@@ -745,6 +751,7 @@
+         break;
+     }
+ 
++    if (offset == 0x150) value |= 0x80; /* oscillator ready for U-Boot */
+     trace_ccm_read_reg(imx6ul_analog_reg_name(index), (uint32_t)value);
+ 
+     return (uint64_t)value;
+--- a/hw/arm/fsl-imx6ul.c
++++ b/hw/arm/fsl-imx6ul.c
+@@ -30,6 +30,50 @@
+ 
+ #define NAME_SIZE 20
+ 
++/* Minimal status handshakes; this is not DDR or PLL electrical simulation. */
++static uint64_t im6_mdscr_read(void *opaque, hwaddr offset, unsigned size)
++{
++    FslIMX6ULState *s = opaque;
++    return s->mdscr_value;
++}
++static void im6_mdscr_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
++{
++    FslIMX6ULState *s = opaque;
++    s->mdscr_value = (value & ~(1u << 14)) | ((value & (1u << 15)) ? (1u << 14) : 0);
++}
++static const MemoryRegionOps im6_mdscr_ops = {
++    .read = im6_mdscr_read, .write = im6_mdscr_write,
++    .endianness = DEVICE_NATIVE_ENDIAN, .valid.min_access_size = 4, .valid.max_access_size = 4,
++};
++static uint64_t im6_anatop_ready_read(void *opaque, hwaddr offset, unsigned size)
++{
++    FslIMX6ULState *s = opaque;
++    return s->anatop_ready_value | 0x80;
++}
++static void im6_anatop_ready_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
++{
++    FslIMX6ULState *s = opaque;
++    s->anatop_ready_value = value;
++}
++static const MemoryRegionOps im6_anatop_ready_ops = {
++    .read = im6_anatop_ready_read, .write = im6_anatop_ready_write,
++    .endianness = DEVICE_NATIVE_ENDIAN, .valid.min_access_size = 4, .valid.max_access_size = 4,
++};
++static uint64_t im6_video_pll_read(void *opaque, hwaddr offset, unsigned size)
++{
++    FslIMX6ULState *s = opaque;
++    return s->video_pll_value;
++}
++static void im6_video_pll_write(void *opaque, hwaddr offset, uint64_t value, unsigned size)
++{
++    FslIMX6ULState *s = opaque;
++    s->video_pll_value = value | (1u << 31);
++}
++static const MemoryRegionOps im6_video_pll_ops = {
++    .read = im6_video_pll_read, .write = im6_video_pll_write,
++    .endianness = DEVICE_NATIVE_ENDIAN, .valid.min_access_size = 4, .valid.max_access_size = 4,
++};
++
+ static void fsl_imx6ul_init(Object *obj)
+ {
+     FslIMX6ULState *s = FSL_IMX6UL(obj);
+@@ -202,10 +246,70 @@
+                                 FSL_IMX6UL_A7MPCORE_DAP_SIZE);
+ 
+     /*
+-     * MMDC
+-     */
+-    create_unimplemented_device("a7mpcore-mmdc", FSL_IMX6UL_MMDC_CFG_ADDR,
+-                                FSL_IMX6UL_MMDC_CFG_SIZE);
++     * MMDC: model the register window as writable RAM.  The real DDR
++     * training sequence is not required because QEMU already maps RAM at
++     * the MMDC address; the status/control registers must not abort or
++     * return an unassigned-device value when U-Boot/Linux probe them.
++     */
++    memory_region_init_ram(&s->mmdc, OBJECT(dev), "imx6ul.mmdc",
++                           FSL_IMX6UL_MMDC_CFG_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_MMDC_CFG_ADDR,
++                                &s->mmdc);
++    memory_region_init_io(&s->mdscr_io, OBJECT(dev), &im6_mdscr_ops, s, "im6.mdscr", 4);
++    memory_region_add_subregion_overlap(&s->mmdc, 0x1c, &s->mdscr_io, 1);
++    {
++        /*
++         * Reset values matching the 512MB DDR3L configuration used by the
++         * Alientek U-Boot.  imx_ddr_size() derives 512MB from MDCTL density
++         * bits 20..22 and the DDR3 MDMISC type field.
++         */
++        uint32_t *p = (uint32_t *)memory_region_get_ram_ptr(&s->mmdc);
++        p[0x00 / 4] = 0x42200000; /* MDCTL: density code -> 512MB */
++        p[0x18 / 4] = 0x00201740; /* MDMISC: DDR3, 32-bit bus */
++        p[0x800 / 4] = 0x00000001; /* MPZQHWCTRL: calibration done */
++    }
++
++    /*
++     * i.MX6ULL U-Boot/MX6 get_cpu_rev() probes 0x00a00004.  The real SoC
++     * decodes this as a ROM/BootROM auxiliary window; QEMU needs a
++     * non-aborting mapping so the early boot code can continue.
++     */
++    create_unimplemented_device("imx6ull-aux", 0x00a00000, 0x1000);
++
++    /*
++     * ANATOP analog registers.  U-Boot polls ANATOP+0x150 bit 7 for PLL
++     * lock before it programs the CCM; model the block as RAM and report
++     * the lock bit as set.
++     */
++    memory_region_init_ram(&s->analog, OBJECT(dev), "imx6ul.analog",
++                           FSL_IMX6UL_ANALOG_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_ANALOG_ADDR,
++                                &s->analog);
++    memory_region_init_io(&s->video_pll_io, OBJECT(dev), &im6_video_pll_ops, s, "im6.video_pll", 4);
++    memory_region_add_subregion_overlap(&s->analog, 0xa0, &s->video_pll_io, 1);
++    memory_region_init_io(&s->anatop_ready_io, OBJECT(dev), &im6_anatop_ready_ops, s, "im6.anatop_ready", 4);
++    memory_region_add_subregion_overlap(&s->analog, 0x150, &s->anatop_ready_io, 1);
++    {
++        uint32_t *p = (uint32_t *)memory_region_get_ram_ptr(&s->analog);
++        p[0x150 / 4] = 0x80;
++    }
++
++    /*
++     * A7 MPCore system counter/compare/control window.  U-Boot's
++     * timer_init() programs the global timer control register here.
++     */
++    create_unimplemented_device("a7mpcore-syscnt", 0x021d4000, 0xc000);
++
++    /*
++     * AIPS bridge configuration registers.  U-Boot's init_aips() writes
++     * the access-control registers before it uses any peripherals; the
++     * writes must not cause an external abort.
++     */
++    create_unimplemented_device("aips1", FSL_IMX6UL_AIPS1_CFG_ADDR,
++                                FSL_IMX6UL_AIPS1_CFG_SIZE);
++    create_unimplemented_device("aips2", FSL_IMX6UL_AIPS2_CFG_ADDR,
++                                FSL_IMX6UL_AIPS2_CFG_SIZE);
++    create_unimplemented_device("aips3", 0x0227c000, 0x1000);
+ 
+     /*
+      * OCOTP
+@@ -320,12 +424,23 @@
+     }
+ 
+     /*
+-     * IOMUXC
+-     */
+-    create_unimplemented_device("iomuxc", FSL_IMX6UL_IOMUXC_ADDR,
+-                                FSL_IMX6UL_IOMUXC_SIZE);
+-    create_unimplemented_device("iomuxc_gpr", FSL_IMX6UL_IOMUXC_GPR_ADDR,
+-                                FSL_IMX6UL_IOMUXC_GPR_SIZE);
++     * IOMUXC: model as writable RAM so Linux pinctrl can program pad
++     * configuration without hitting an unimplemented-device abort.
++     */
++    memory_region_init_ram(&s->iomuxc, OBJECT(dev), "imx6ul.iomuxc",
++                           FSL_IMX6UL_IOMUXC_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_IOMUXC_ADDR,
++                                &s->iomuxc);
++
++    memory_region_init_ram(&s->iomuxc_gpr, OBJECT(dev), "imx6ul.iomuxc_gpr",
++                           FSL_IMX6UL_IOMUXC_GPR_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(),
++                                FSL_IMX6UL_IOMUXC_GPR_ADDR, &s->iomuxc_gpr);
++
++    memory_region_init_ram(&s->iomuxc_snvs, OBJECT(dev), "imx6ul.iomuxc_snvs",
++                           FSL_IMX6UL_IOMUXC_SNVS_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(),
++                                FSL_IMX6UL_IOMUXC_SNVS_ADDR, &s->iomuxc_snvs);
+ 
+     /*
+      * CCM
+--- a/include/hw/arm/fsl-imx6ul.h
++++ b/include/hw/arm/fsl-imx6ul.h
+@@ -88,6 +88,17 @@
+     IMX6ULLCDIFState   lcdif;
+     MemoryRegion       rom;
+     MemoryRegion       caam;
++    MemoryRegion       mmdc;
++    MemoryRegion       analog;
++    MemoryRegion       mdscr_io;
++    MemoryRegion       video_pll_io;
++    MemoryRegion       anatop_ready_io;
++    uint32_t           anatop_ready_value;
++    uint32_t           mdscr_value;
++    uint32_t           video_pll_value;
++    MemoryRegion       iomuxc;
++    MemoryRegion       iomuxc_gpr;
++    MemoryRegion       iomuxc_snvs;
+     MemoryRegion       ocram;
+     MemoryRegion       ocram_alias;
+ 
+@@ -214,10 +225,13 @@
+     FSL_IMX6UL_GPT2_ADDR            = 0x020E8000,
+ 
+     FSL_IMX6UL_IOMUXC_GPR_ADDR      = 0x020E4000,
+-    FSL_IMX6UL_IOMUXC_GPR_SIZE      = 0x40,
++    FSL_IMX6UL_IOMUXC_GPR_SIZE      = 0x4000,
+ 
+     FSL_IMX6UL_IOMUXC_ADDR          = 0x020E0000,
+-    FSL_IMX6UL_IOMUXC_SIZE          = 0x700,
++    FSL_IMX6UL_IOMUXC_SIZE          = 0x4000,
++
++    FSL_IMX6UL_IOMUXC_SNVS_ADDR     = 0x02290000,
++    FSL_IMX6UL_IOMUXC_SNVS_SIZE     = 0x10000,
+ 
+     FSL_IMX6UL_GPC_ADDR             = 0x020DC000,
+ 
+--- /dev/null
++++ b/hw/arm/mcimx6ull-alientek.c
+@@ -0,0 +1,263 @@
++/*
++ * Copyright (c) 2018 Jean-Christophe Dubois <jcd@tribudubois.net>
++ *
++ * MCIMX6UL_EVK Board System emulation.
++ *
++ * This code is licensed under the GPL, version 2 or later.
++ * See the file `COPYING' in the top level directory.
++ *
++ * It (partially) emulates a mcimx6ull_alientek board, with a Freescale
++ * i.MX6ul SoC
++ */
++
++#include "qemu/osdep.h"
++#include "qapi/error.h"
++#include "hw/arm/fsl-imx6ul.h"
++#include "hw/arm/boot.h"
++#include "hw/i2c/i2c.h"
++#include "hw/arm/machines-qom.h"
++#include "hw/core/boards.h"
++#include "hw/core/loader.h"
++#include "hw/core/qdev-properties.h"
++#include "qemu/error-report.h"
++#include "system/address-spaces.h"
++#include "system/block-backend.h"
++#include "system/block-backend-io.h"
++#include "system/memory.h"
++#include "system/qtest.h"
++
++#define IMX6ULL_IVT_MAGIC      0x402000d1
++#define IMX6ULL_IVT_OFFSET     0x400
++#define IMX6ULL_MAX_BOOT_IMAGE (16 * MiB)
++
++static uint16_t dcd_be16(const uint8_t *p)
++{
++    return (p[0] << 8) | p[1];
++}
++
++/*
++ * Replay the DCD (Device Configuration Data) block found by the IVT.
++ *
++ * U-Boot's .imx contains a DCD made of 0xCC write commands.  Each command
++ * carries an array of (address, value) pairs.  The real BootROM applies these
++ * before starting the image; doing the same here lets us boot the untouched
++ * vendor image and exercise the same MMDC/CCM/IOMUX setup path.  The block is
++ * inside the image buffer, at dcd_addr relative to self (the IVT address).
++ */
++static void mcimx6ull_alientek_apply_dcd(const uint8_t *buf, size_t len,
++                                         uint64_t self, uint64_t dcd_addr)
++{
++    const uint8_t *dcd, *p, *end;
++    uint64_t off;
++    uint16_t dcd_len;
++    unsigned writes = 0;
++    MemTxResult res;
++
++    if (dcd_addr < self) {
++        return;
++    }
++    off = dcd_addr - self;
++    if (off > len || len - off < 4) {
++        return;
++    }
++    dcd = buf + off;
++    if (dcd[0] != 0xd2) {
++        return;
++    }
++
++    dcd_len = dcd_be16(dcd + 1);
++    if (dcd_len < 8 || off + dcd_len > len) {
++        return;
++    }
++
++    p = dcd + 4;
++    end = dcd + dcd_len;
++    while (p + 4 <= end) {
++        uint8_t tag = p[0];
++        uint16_t cmd_len = dcd_be16(p + 1);
++
++        if (cmd_len < 4 || p + cmd_len > end) {
++            break;
++        }
++        if (tag == 0xcc) {
++            size_t n = (cmd_len - 4) / 8;
++            size_t i;
++
++            for (i = 0; i < n; i++) {
++                uint32_t addr = ldl_be_p(p + 4 + i * 8);
++                uint32_t value = ldl_be_p(p + 4 + i * 8 + 4);
++
++                res = address_space_write(&address_space_memory, addr,
++                                          MEMTXATTRS_UNSPECIFIED,
++                                          &value, sizeof(value));
++                if (res == MEMTX_OK) {
++                    writes++;
++                }
++            }
++        }
++        p += cmd_len;
++    }
++
++    if (writes) {
++        error_report("imx6ull BootROM: applied DCD, %u register writes",
++                     writes);
++    }
++}
++
++/*
++ * Minimal i.MX6ULL BootROM replacement.
++ *
++ * The real BootROM reads an IVT from the boot device, applies the DCD, copies
++ * the boot image to the address in self_ptr/boot_data and jumps to the entry
++ * point.  The DCD is replayed so the vendor .imx image follows its original
++ * initialization sequence; QEMU's MMDC model accepts the same register
++ * programming that the real DDR controller receives.
++ */
++static bool mcimx6ull_alientek_load_uboot(BlockBackend *blk)
++{
++    uint32_t ivt[8];
++    uint32_t boot_data[3];
++    uint64_t entry, self, dcd_ptr, boot_data_addr;
++    uint64_t image_start, image_size;
++    uint64_t image_len;
++    uint32_t rom[2];
++    g_autofree uint8_t *buf = NULL;
++    MemTxResult res;
++
++    if (!blk) {
++        return false;
++    }
++
++    if (blk_pread(blk, IMX6ULL_IVT_OFFSET, sizeof(ivt), ivt, 0) < 0) {
++        return false;
++    }
++    if (ivt[0] != IMX6ULL_IVT_MAGIC) {
++        return false;
++    }
++
++    entry = ivt[1];
++    dcd_ptr = ivt[3];
++    boot_data_addr = ivt[4];
++    self = ivt[5];
++    if (entry < 0x80000000 || self < 0x80000000 ||
++        boot_data_addr < self || boot_data_addr - self > 0x1000) {
++        return false;
++    }
++
++    if (blk_pread(blk, IMX6ULL_IVT_OFFSET + (boot_data_addr - self),
++                  sizeof(boot_data), boot_data, 0) < 0) {
++        return false;
++    }
++    image_start = boot_data[0];
++    image_size = boot_data[1];
++    if (image_size > IMX6ULL_MAX_BOOT_IMAGE ||
++        self < image_start || self - image_start > image_size) {
++        return false;
++    }
++
++    /* Bytes [self, self + image_len) are the actual .imx payload. */
++    image_len = image_size - (self - image_start);
++    buf = g_malloc(image_len);
++    if (blk_pread(blk, IMX6ULL_IVT_OFFSET, image_len, buf, 0) < 0) {
++        return false;
++    }
++
++    mcimx6ull_alientek_apply_dcd(buf, image_len, self, dcd_ptr);
++
++    res = address_space_write(&address_space_memory, self,
++                              MEMTXATTRS_UNSPECIFIED, buf, image_len);
++    if (res != MEMTX_OK) {
++        return false;
++    }
++
++    /*
++     * The first instruction in the SoC ROM is a jump to the loaded image.
++     * QEMU starts the CPU at address 0, so this also makes the same eMMC
++     * image bootable without a host-side -kernel file.
++     */
++    rom[0] = 0xe51ff004; /* ldr pc, [pc, #-4] */
++    rom[1] = entry;
++    rom_add_blob_fixed("imx6ull.bootrom", rom, sizeof(rom), 0);
++
++    return true;
++}
++
++static void mcimx6ull_alientek_init(MachineState *machine)
++{
++    static struct arm_boot_info boot_info;
++    FslIMX6ULState *s;
++    BlockBackend *emmc_blk = NULL;
++    int i;
++
++    if (machine->ram_size > FSL_IMX6UL_MMDC_SIZE) {
++        error_report("RAM size " RAM_ADDR_FMT " above max supported (%08x)",
++                     machine->ram_size, FSL_IMX6UL_MMDC_SIZE);
++        exit(1);
++    }
++
++    boot_info = (struct arm_boot_info) {
++        .loader_start = FSL_IMX6UL_MMDC_ADDR,
++        .board_id = -1,
++        .ram_size = machine->ram_size,
++        .psci_conduit = QEMU_PSCI_CONDUIT_SMC,
++    };
++
++    s = FSL_IMX6UL(object_new(TYPE_FSL_IMX6UL));
++    object_property_add_child(OBJECT(machine), "soc", OBJECT(s));
++    object_property_set_uint(OBJECT(s), "fec1-phy-num", 2, &error_fatal);
++    object_property_set_uint(OBJECT(s), "fec2-phy-num", 1, &error_fatal);
++    object_property_set_bool(OBJECT(s), "fec1-phy-connected", false,
++                             &error_fatal);
++    qdev_realize(DEVICE(s), NULL, &error_fatal);
++    i2c_slave_create_simple(s->i2c[1].bus, "im6-gt1158", 0x14);
++
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_MMDC_ADDR,
++                                machine->ram);
++
++    for (i = 0; i < FSL_IMX6UL_NUM_USDHCS; i++) {
++        BusState *bus;
++        DeviceState *carddev;
++        DriveInfo *di;
++        BlockBackend *blk;
++
++        di = drive_get(IF_SD, 0, i);
++        blk = di ? blk_by_legacy_dinfo(di) : NULL;
++        if (i == 1 && blk) {
++            emmc_blk = blk;
++        }
++        bus = qdev_get_child_bus(DEVICE(&s->usdhc[i]), "sd-bus");
++        carddev = qdev_new(TYPE_SD_CARD);
++        qdev_prop_set_drive_err(carddev, "drive", blk, &error_fatal);
++        qdev_realize_and_unref(carddev, bus, &error_fatal);
++    }
++
++    if (!qtest_enabled()) {
++        if (machine->kernel_filename) {
++            /* Existing Linux direct-boot path. */
++            arm_load_kernel(&s->cpu, machine, &boot_info);
++        } else {
++            /*
++             * No -kernel: behave like the on-chip BootROM.  The eMMC image
++             * must contain u-boot.imx at offset 0x400, exactly as a real
++             * board's first-stage image is flashed.
++             */
++            if (!mcimx6ull_alientek_load_uboot(emmc_blk)) {
++                error_report("no kernel and no valid i.MX IVT in eMMC at 0x%x",
++                             IMX6ULL_IVT_OFFSET);
++                exit(1);
++            }
++            arm_load_kernel(&s->cpu, machine, &boot_info);
++        }
++    }
++}
++
++static void mcimx6ull_alientek_machine_init(MachineClass *mc)
++{
++    mc->desc = "Alientek I.MX6ULL Mini (Cortex-A7, eMMC + 7in LCD)";
++    mc->init = mcimx6ull_alientek_init;
++    mc->max_cpus = FSL_IMX6UL_NUM_CPUS;
++    mc->default_ram_id = "mcimx6ul-evk.ram";
++    mc->auto_create_sdcard = true;
++}
++
++DEFINE_MACHINE_ARM("mcimx6ull-alientek", mcimx6ull_alientek_machine_init)
+--- a/hw/arm/meson.build
++++ b/hw/arm/meson.build
+@@ -91,7 +91,7 @@
+ stub_ss.add(files('smmuv3-accel-stubs.c'))
+ arm_common_ss.add(when: 'CONFIG_TEGRA241_CMDQV', if_true: files('tegra241-cmdqv.c'))
+ stub_ss.add(files('tegra241-cmdqv-stubs.c'))
+-arm_common_ss.add(when: 'CONFIG_FSL_IMX6UL', if_true: files('fsl-imx6ul.c', 'mcimx6ul-evk.c'))
++arm_common_ss.add(when: 'CONFIG_FSL_IMX6UL', if_true: files('fsl-imx6ul.c', 'mcimx6ul-evk.c', 'mcimx6ull-alientek.c', 'im6-gt1158.c'))
+ arm_common_ss.add(when: 'CONFIG_NRF51_SOC', if_true: files('nrf51_soc.c'))
+ arm_common_ss.add(when: 'CONFIG_XEN', if_true: files(
+   'xen-stubs.c',
+--- a/hw/display/imx6ul_lcdif.c
++++ b/hw/display/imx6ul_lcdif.c
+@@ -298,6 +298,9 @@
+ 
+     switch (reg) {
+     case A_CTRL:
++        if (s->regs[idx] & (1u << 31)) {
++            s->regs[idx] |= (1u << 30);
++        }
+         if (!FIELD_EX32(oldv, CTRL, RUN) &&
+             FIELD_EX32(s->regs[idx], CTRL, RUN)) {
+             s->invalidate = true;
+--- /dev/null
++++ b/hw/arm/im6-gt1158.c
+@@ -0,0 +1,96 @@
++/* Experimental GT1158 subset for the existing i.MX6ULL FreeRTOS driver. */
++#include "qemu/osdep.h"
++#include "hw/i2c/i2c.h"
++#include "ui/input.h"
++#include "qemu/module.h"
++#define TYPE_IM6_GT "im6-gt1158"
++OBJECT_DECLARE_SIMPLE_TYPE(IM6GTState, IM6_GT)
++struct IM6GTState {
++    I2CSlave parent_obj;
++    uint16_t reg;
++    uint8_t index;
++    int x, y;
++    bool down, delivered_down;
++    struct { int x, y; bool down; } frames[32];
++    unsigned head, count;
++    QemuInputHandlerState *handler;
++};
++static int gt_event(I2CSlave *dev, enum i2c_event event)
++{
++    IM6GTState *s = IM6_GT(dev);
++    if (event == I2C_START_SEND) s->index = 0;
++    return 0;
++}
++static int gt_send(I2CSlave *dev, uint8_t value)
++{
++    IM6GTState *s = IM6_GT(dev);
++    if (s->index == 0) s->reg = (uint16_t)value << 8;
++    else if (s->index == 1) s->reg |= value;
++    else { if (s->reg == 0x814e && value == 0 && s->count) { s->head = (s->head + 1) % 32; s->count--; } s->reg++; }
++    s->index++;
++    return 0;
++}
++static uint8_t gt_recv(I2CSlave *dev)
++{
++    IM6GTState *s = IM6_GT(dev);
++    uint16_t r = s->reg++;
++    int x = s->count ? s->frames[s->head].x : s->x;
++    int y = s->count ? s->frames[s->head].y : s->y;
++    bool down = s->count && s->frames[s->head].down;
++    switch (r) {
++    case 0x8140: return '1'; case 0x8141: return '1';
++    case 0x8142: return '5'; case 0x8143: return '8';
++    case 0x8051: return 0x20; case 0x8052: return 0x03;
++    case 0x8053: return 0xe0; case 0x8054: return 0x01;
++    case 0x814e: return s->count ? (0x80 | (down ? 1 : 0)) : 0;
++    case 0x8150: return x & 0xff; case 0x8151: return (x >> 8) & 0xff;
++    case 0x8152: return y & 0xff; case 0x8153: return (y >> 8) & 0xff;
++    default: return 0;
++    }
++}
++static void gt_input(DeviceState *dev, QemuConsole *src, QemuInputEvent *evt)
++{
++    IM6GTState *s = IM6_GT(dev);
++    if (evt->type == INPUT_EVENT_KIND_ABS) {
++        if (evt->abs.axis == INPUT_AXIS_X) s->x = MIN(799, MAX(0, evt->abs.value * 799 / 0x7fff));
++        if (evt->abs.axis == INPUT_AXIS_Y) s->y = MIN(479, MAX(0, evt->abs.value * 479 / 0x7fff));
++    } else if (evt->type == INPUT_EVENT_KIND_BTN && evt->btn.button == INPUT_BUTTON_LEFT) {
++        s->down = evt->btn.down;
++    }
++}
++static void gt_sync(DeviceState *dev)
++{
++    IM6GTState *s = IM6_GT(dev);
++    unsigned tail;
++    if (s->count) {
++        unsigned last = (s->head + s->count - 1) % 32;
++        if (s->frames[last].x == s->x && s->frames[last].y == s->y && s->frames[last].down == s->down) return;
++    } else if (!s->down && !s->delivered_down) {
++        return;
++    }
++    if (s->count == 32) s->count--; /* Preserve the latest release if overloaded. */
++    tail = (s->head + s->count) % 32;
++    s->frames[tail].x = s->x; s->frames[tail].y = s->y; s->frames[tail].down = s->down;
++    s->count++; s->delivered_down = s->down;
++}
++static const QemuInputHandler gt_handler = {
++    .name = "GT1158 touchscreen", .mask = INPUT_EVENT_MASK_BTN | INPUT_EVENT_MASK_ABS,
++    .event = gt_input, .sync = gt_sync,
++};
++static void gt_realize(DeviceState *dev, Error **errp)
++{
++    IM6GTState *s = IM6_GT(dev);
++    s->handler = qemu_input_handler_register(dev, &gt_handler);
++    qemu_input_handler_activate(s->handler);
++}
++static void gt_class_init(ObjectClass *klass, const void *data)
++{
++    DeviceClass *dc = DEVICE_CLASS(klass);
++    I2CSlaveClass *ic = I2C_SLAVE_CLASS(klass);
++    dc->realize = gt_realize; ic->event = gt_event; ic->send = gt_send; ic->recv = gt_recv;
++}
++static const TypeInfo gt_info = { .name=TYPE_IM6_GT, .parent=TYPE_I2C_SLAVE,
++    .instance_size=sizeof(IM6GTState), .class_init=gt_class_init };
++static void gt_register(void) { type_register_static(&gt_info); }
++type_init(gt_register)
++

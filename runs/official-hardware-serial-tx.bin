@@ -1,0 +1,1 @@
+setenv bootargs console=ttymxc0,115200 root=/dev/mmcblk0 rootwait rwbootz 0x80800000 - 0x83000000[30;100R

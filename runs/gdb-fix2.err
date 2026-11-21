@@ -1,0 +1,4 @@
+warning: No executable has been specified and target does not support
+determining executable automatically.  Try using the "file" command.
+D:\Workspace\StudyNote\IM6\qemu\runs\ccm-fix3.gdb:10: Error in sourced command file:
+Cannot access memory at address 0x20c4038

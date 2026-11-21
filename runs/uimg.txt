@@ -1,0 +1,2 @@
+Wrong image type 108, expected 2
+qemu-system-arm-linux: terminating on signal 15 from pid 60503 (timeout)

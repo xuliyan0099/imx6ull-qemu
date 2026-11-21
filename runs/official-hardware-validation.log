@@ -1,0 +1,10 @@
+/tmp/im6-board-eh0qzkfz
+0 booting 出厂 Linux 正在初始化，首次启动可能需要数分钟
+20 booting 出厂 Linux 正在初始化，首次启动可能需要数分钟
+40 booting 出厂 Linux 正在初始化，首次启动可能需要数分钟
+60 booting 出厂 Linux 正在初始化，首次启动可能需要数分钟
+80 ready 出厂 Linux 已启动，原厂启动脚本正在加载桌面
+100 ready 出厂 Linux 已启动，原厂启动脚本正在加载桌面
+120 ready 出厂 Linux 已启动，原厂启动脚本正在加载桌面
+PASS cold boot, native Goodix probe, zero Linux shell commands
+Captured desktop and settings click for visual verification

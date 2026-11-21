@@ -1,0 +1,2 @@
+@echo off
+wsl -d Ubuntu-24.04 -- bash -lc "cd /mnt/d/Workspace/StudyNote/IM6/qemu && mkdir -p /tmp/vvfat && cp images/zImage /tmp/vvfat/zimage-official && cp images/board-alientek-full.dtb /tmp/vvfat/ && cp images/ramdisk.uimg /tmp/vvfat/ && exec ./bin/qemu-system-arm-linux -M mcimx6ull-alientek -m 512 -smp 1 -drive if=sd,index=0,format=raw,file=fat:rw:/tmp/vvfat -drive if=sd,index=1,format=raw,file=images/uboot-emmc.img -nic user,model=imx.enet -nic user,model=imx.enet -serial mon:stdio -display gtk -no-reboot"

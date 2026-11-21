@@ -1,0 +1,36 @@
+--- a/hw/sd/sdhci.c
++++ b/hw/sd/sdhci.c
+@@ -645,8 +645,14 @@
+             if (s->data_count == block_size) {
+                 s->data_count = 0;
+             }
+-            if (page_aligned && boundary_count == 0) {
+-                break;
++            /*
++             * U-Boot's FSL eSDHC driver expects the controller to consume
++             * the whole block count in one command.  Continue across the
++             * SDMA buffer boundary instead of stopping and waiting for a
++             * guest that never reprograms the transfer.
++             */
++            if (boundary_count == 0) {
++                boundary_count = boundary_chk;
+             }
+         }
+     } else {
+@@ -670,8 +676,14 @@
+                     s->blkcnt--;
+                 }
+             }
+-            if (page_aligned && boundary_count == 0) {
+-                break;
++            /*
++             * U-Boot's FSL eSDHC driver expects the controller to consume
++             * the whole block count in one command.  Continue across the
++             * SDMA buffer boundary instead of stopping and waiting for a
++             * guest that never reprograms the transfer.
++             */
++            if (boundary_count == 0) {
++                boundary_count = boundary_chk;
+             }
+         }
+     }

@@ -1,0 +1,27 @@
+--- patch-a/hw/misc/imx6ul_ccm.c	2026-11-21 13:22:58.088217606 +0800
++++ patch-b/hw/misc/imx6ul_ccm.c	2026-11-21 13:22:58.097067960 +0800
+@@ -515,9 +515,15 @@
+         break;
+     case CLK_IPG:
+         freq = imx6ul_ccm_get_ipg_clk(s);
++        if (freq == 0) {
++            freq = 66000000;
++        }
+         break;
+     case CLK_IPG_HIGH:
+         freq = imx6ul_ccm_get_per_clk(s);
++        if (freq == 0) {
++            freq = 66000000;
++        }
+         break;
+     case CLK_32k:
+         freq = CKIL_FREQ;
+@@ -553,7 +559,7 @@
+     s->ccm[CCM_CS2CDR] = 0x000336C1;
+     s->ccm[CCM_CDCDR] = 0x33F71F92;
+     s->ccm[CCM_CHSCCDR] = 0x000248A4;
+-    s->ccm[CCM_CSCDR2] = 0x00029B48;
++    s->ccm[CCM_CSCDR2] = 0x00029148;
+     s->ccm[CCM_CSCDR3] = 0x00014841;
+     s->ccm[CCM_CDHIPR] = 0x00000000;
+     s->ccm[CCM_CTOR] = 0x00000000;

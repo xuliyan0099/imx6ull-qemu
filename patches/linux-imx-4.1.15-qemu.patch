@@ -1,0 +1,145 @@
+diff --git a/arch/arm/boot/compressed/head.S b/arch/arm/boot/compressed/head.S
+index 2c45b570..feb8dfbb 100644
+--- a/arch/arm/boot/compressed/head.S
++++ b/arch/arm/boot/compressed/head.S
+@@ -112,7 +112,7 @@
+ #endif
+ 		.endm
+ 
+-		.section ".start", #alloc, #execinstr
++		.section ".start", "ax"
+ /*
+  * sort out different calling conventions
+  */
+diff --git a/arch/arm/boot/compressed/piggy.gzip.S b/arch/arm/boot/compressed/piggy.gzip.S
+index a68adf91..7de824f7 100644
+--- a/arch/arm/boot/compressed/piggy.gzip.S
++++ b/arch/arm/boot/compressed/piggy.gzip.S
+@@ -1,4 +1,4 @@
+-	.section .piggydata,#alloc
++	.section .piggydata,"a"
+ 	.globl	input_data
+ input_data:
+ 	.incbin	"arch/arm/boot/compressed/piggy.gzip"
+diff --git a/arch/arm/boot/compressed/piggy.lz4.S b/arch/arm/boot/compressed/piggy.lz4.S
+index 3d9a5756..d75efd21 100644
+--- a/arch/arm/boot/compressed/piggy.lz4.S
++++ b/arch/arm/boot/compressed/piggy.lz4.S
+@@ -1,4 +1,4 @@
+-	.section .piggydata,#alloc
++	.section .piggydata,"a"
+ 	.globl	input_data
+ input_data:
+ 	.incbin	"arch/arm/boot/compressed/piggy.lz4"
+diff --git a/arch/arm/boot/compressed/piggy.lzma.S b/arch/arm/boot/compressed/piggy.lzma.S
+index d7e69cff..e1eb3797 100644
+--- a/arch/arm/boot/compressed/piggy.lzma.S
++++ b/arch/arm/boot/compressed/piggy.lzma.S
+@@ -1,4 +1,4 @@
+-	.section .piggydata,#alloc
++	.section .piggydata,"a"
+ 	.globl	input_data
+ input_data:
+ 	.incbin	"arch/arm/boot/compressed/piggy.lzma"
+diff --git a/arch/arm/boot/compressed/piggy.lzo.S b/arch/arm/boot/compressed/piggy.lzo.S
+index a425ad95..4401d17e 100644
+--- a/arch/arm/boot/compressed/piggy.lzo.S
++++ b/arch/arm/boot/compressed/piggy.lzo.S
+@@ -1,4 +1,4 @@
+-	.section .piggydata,#alloc
++	.section .piggydata,"a"
+ 	.globl	input_data
+ input_data:
+ 	.incbin	"arch/arm/boot/compressed/piggy.lzo"
+diff --git a/arch/arm/boot/compressed/piggy.xzkern.S b/arch/arm/boot/compressed/piggy.xzkern.S
+index 5703f300..0436c2d4 100644
+--- a/arch/arm/boot/compressed/piggy.xzkern.S
++++ b/arch/arm/boot/compressed/piggy.xzkern.S
+@@ -1,4 +1,4 @@
+-	.section .piggydata,#alloc
++	.section .piggydata,"a"
+ 	.globl	input_data
+ input_data:
+ 	.incbin	"arch/arm/boot/compressed/piggy.xzkern"
+diff --git a/arch/arm/include/asm/compiler.h b/arch/arm/include/asm/compiler.h
+index 29fe85e5..da24e137 100644
+--- a/arch/arm/include/asm/compiler.h
++++ b/arch/arm/include/asm/compiler.h
+@@ -11,18 +11,7 @@
+  * For compatibility with clang, we have to specifically take the equivalence
+  * of 'r11' <-> 'fp' and 'r12' <-> 'ip' into account as well.
+  */
+-#define __asmeq(x, y)				\
+-	".ifnc " x "," y "; "			\
+-	  ".ifnc " x y ",fpr11; " 		\
+-	    ".ifnc " x y ",r11fp; "		\
+-	      ".ifnc " x y ",ipr12; " 		\
+-	        ".ifnc " x y ",r12ip; "		\
+-	          ".err; "			\
+-	        ".endif; "			\
+-	      ".endif; "			\
+-	    ".endif; "				\
+-	  ".endif; "				\
+-	".endif\n\t"
++#define __asmeq(x, y) ""
+ 
+ 
+ #endif /* __ASM_ARM_COMPILER_H */
+diff --git a/arch/arm/mm/proc-v7.S b/arch/arm/mm/proc-v7.S
+index f68d31f4..112e3425 100644
+--- a/arch/arm/mm/proc-v7.S
++++ b/arch/arm/mm/proc-v7.S
+@@ -484,7 +484,7 @@ __v7_setup_stack:
+ 	string	cpu_elf_name, "v7"
+ 	.align
+ 
+-	.section ".proc.info.init", #alloc
++	.section ".proc.info.init", "a"
+ 
+ 	/*
+ 	 * Standard v7 proc info content
+diff --git a/drivers/pinctrl/freescale/pinctrl-imx6ul.c b/drivers/pinctrl/freescale/pinctrl-imx6ul.c
+index cec71842..88b5e4c4 100644
+--- a/drivers/pinctrl/freescale/pinctrl-imx6ul.c
++++ b/drivers/pinctrl/freescale/pinctrl-imx6ul.c
+@@ -358,7 +358,7 @@ static int __init imx6ul_pinctrl_init(void)
+ {
+ 	return platform_driver_register(&imx6ul_pinctrl_driver);
+ }
+-arch_initcall(imx6ul_pinctrl_init);
++late_initcall(imx6ul_pinctrl_init);
+ 
+ static void __exit imx6ul_pinctrl_exit(void)
+ {
+diff --git a/drivers/video/fbdev/mxsfb.c b/drivers/video/fbdev/mxsfb.c
+index a5f3c804..6f26feb8 100644
+--- a/drivers/video/fbdev/mxsfb.c
++++ b/drivers/video/fbdev/mxsfb.c
+@@ -1479,8 +1479,12 @@ static int mxsfb_probe(struct platform_device *pdev)
+ 	if (!host->dispdrv) {
+ 		pinctrl = devm_pinctrl_get_select_default(&pdev->dev);
+ 		if (IS_ERR(pinctrl)) {
+-			ret = PTR_ERR(pinctrl);
+-			goto fb_pm_runtime_disable;
++			if (PTR_ERR(pinctrl) == -EPROBE_DEFER) {
++				ret = -EPROBE_DEFER;
++				goto fb_pm_runtime_disable;
++			}
++			dev_info(&pdev->dev, "pinctrl default state unavailable, continue\n");
++			pinctrl = NULL;
+ 		}
+ 	}
+ 
+diff --git a/include/linux/log2.h b/include/linux/log2.h
+index fd7ff3d9..14458fdd 100644
+--- a/include/linux/log2.h
++++ b/include/linux/log2.h
+@@ -18,7 +18,7 @@
+ /*
+  * deal with unrepresentable constant logarithms
+  */
+-extern __attribute__((const, noreturn))
++extern __attribute__((const))
+ int ____ilog2_NaN(void);
+ 
+ /*

@@ -1,0 +1,46 @@
+# QEMU build outputs
+/bin/*
+!/bin/.gitkeep
+/baremetal/*.elf
+
+# QEMU source is downloaded by scripts/fetch-qemu.sh
+/qemu-src/
+
+# Large runtime images and vendor binaries (keep only selected DTBs)
+/images/*.img
+/images/*.ext4
+/images/*.qcow2
+/images/*.raw
+/images/*.elf
+/images/*.bin
+/images/*.dtb
+/images/zImage*
+/images/ramdisk.uimg
+/images/u-boot.imx
+/images/tf.img
+
+!/images/board-alientek-full.dtb
+!/images/board-alientek-official-gui.dtb
+
+# Generated initramfs archives
+/initramfs/*.cpio.gz
+
+# Runtime captures and memory dumps
+/runs/*.ppm
+/runs/*.raw
+/runs/*.bin
+!/runs/official-hardware-serial-tx.bin
+/experiments/graphics/*.ppm
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+/web/deps/
+
+# Local editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp

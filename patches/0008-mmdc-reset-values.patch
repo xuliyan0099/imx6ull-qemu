@@ -1,0 +1,129 @@
+--- a/hw/arm/fsl-imx6ul.c
++++ b/hw/arm/fsl-imx6ul.c
+@@ -202,10 +202,64 @@
+                                 FSL_IMX6UL_A7MPCORE_DAP_SIZE);
+ 
+     /*
+-     * MMDC
++     * MMDC: model the register window as writable RAM.  The real DDR
++     * training sequence is not required because QEMU already maps RAM at
++     * the MMDC address; the status/control registers must not abort or
++     * return an unassigned-device value when U-Boot/Linux probe them.
++     */
++    memory_region_init_ram(&s->mmdc, OBJECT(dev), "imx6ul.mmdc",
++                           FSL_IMX6UL_MMDC_CFG_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_MMDC_CFG_ADDR,
++                                &s->mmdc);
++    {
++        /*
++         * Reset values matching the 512MB DDR3L configuration used by the
++         * Alientek U-Boot.  imx_ddr_size() derives 512MB from MDCTL density
++         * bits 20..22 and the DDR3 MDMISC type field.
++         */
++        uint32_t *p = (uint32_t *)memory_region_get_ram_ptr(&s->mmdc);
++        p[0x00 / 4] = 0x42200000; /* MDCTL: density code -> 512MB */
++        p[0x18 / 4] = 0x00201740; /* MDMISC: DDR3, 32-bit bus */
++        p[0x800 / 4] = 0x00000001; /* MPZQHWCTRL: calibration done */
++    }
++
++    /*
++     * i.MX6ULL U-Boot/MX6 get_cpu_rev() probes 0x00a00004.  The real SoC
++     * decodes this as a ROM/BootROM auxiliary window; QEMU needs a
++     * non-aborting mapping so the early boot code can continue.
++     */
++    create_unimplemented_device("imx6ull-aux", 0x00a00000, 0x1000);
++
++    /*
++     * ANATOP analog registers.  U-Boot polls ANATOP+0x150 bit 7 for PLL
++     * lock before it programs the CCM; model the block as RAM and report
++     * the lock bit as set.
++     */
++    memory_region_init_ram(&s->analog, OBJECT(dev), "imx6ul.analog",
++                           FSL_IMX6UL_ANALOG_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_ANALOG_ADDR,
++                                &s->analog);
++    {
++        uint32_t *p = (uint32_t *)memory_region_get_ram_ptr(&s->analog);
++        p[0x150 / 4] = 0x80;
++    }
++
++    /*
++     * A7 MPCore system counter/compare/control window.  U-Boot's
++     * timer_init() programs the global timer control register here.
++     */
++    create_unimplemented_device("a7mpcore-syscnt", 0x021d4000, 0xc000);
++
++    /*
++     * AIPS bridge configuration registers.  U-Boot's init_aips() writes
++     * the access-control registers before it uses any peripherals; the
++     * writes must not cause an external abort.
+      */
+-    create_unimplemented_device("a7mpcore-mmdc", FSL_IMX6UL_MMDC_CFG_ADDR,
+-                                FSL_IMX6UL_MMDC_CFG_SIZE);
++    create_unimplemented_device("aips1", FSL_IMX6UL_AIPS1_CFG_ADDR,
++                                FSL_IMX6UL_AIPS1_CFG_SIZE);
++    create_unimplemented_device("aips2", FSL_IMX6UL_AIPS2_CFG_ADDR,
++                                FSL_IMX6UL_AIPS2_CFG_SIZE);
++    create_unimplemented_device("aips3", 0x0227c000, 0x1000);
+ 
+     /*
+      * OCOTP
+@@ -320,12 +374,23 @@
+     }
+ 
+     /*
+-     * IOMUXC
++     * IOMUXC: model as writable RAM so Linux pinctrl can program pad
++     * configuration without hitting an unimplemented-device abort.
+      */
+-    create_unimplemented_device("iomuxc", FSL_IMX6UL_IOMUXC_ADDR,
+-                                FSL_IMX6UL_IOMUXC_SIZE);
+-    create_unimplemented_device("iomuxc_gpr", FSL_IMX6UL_IOMUXC_GPR_ADDR,
+-                                FSL_IMX6UL_IOMUXC_GPR_SIZE);
++    memory_region_init_ram(&s->iomuxc, OBJECT(dev), "imx6ul.iomuxc",
++                           FSL_IMX6UL_IOMUXC_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_IOMUXC_ADDR,
++                                &s->iomuxc);
++
++    memory_region_init_ram(&s->iomuxc_gpr, OBJECT(dev), "imx6ul.iomuxc_gpr",
++                           FSL_IMX6UL_IOMUXC_GPR_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(),
++                                FSL_IMX6UL_IOMUXC_GPR_ADDR, &s->iomuxc_gpr);
++
++    memory_region_init_ram(&s->iomuxc_snvs, OBJECT(dev), "imx6ul.iomuxc_snvs",
++                           FSL_IMX6UL_IOMUXC_SNVS_SIZE, &error_abort);
++    memory_region_add_subregion(get_system_memory(),
++                                FSL_IMX6UL_IOMUXC_SNVS_ADDR, &s->iomuxc_snvs);
+ 
+     /*
+      * CCM
+--- a/include/hw/arm/fsl-imx6ul.h
++++ b/include/hw/arm/fsl-imx6ul.h
+@@ -88,6 +88,11 @@
+     IMX6ULLCDIFState   lcdif;
+     MemoryRegion       rom;
+     MemoryRegion       caam;
++    MemoryRegion       mmdc;
++    MemoryRegion       analog;
++    MemoryRegion       iomuxc;
++    MemoryRegion       iomuxc_gpr;
++    MemoryRegion       iomuxc_snvs;
+     MemoryRegion       ocram;
+     MemoryRegion       ocram_alias;
+ 
+@@ -214,10 +219,13 @@
+     FSL_IMX6UL_GPT2_ADDR            = 0x020E8000,
+ 
+     FSL_IMX6UL_IOMUXC_GPR_ADDR      = 0x020E4000,
+-    FSL_IMX6UL_IOMUXC_GPR_SIZE      = 0x40,
++    FSL_IMX6UL_IOMUXC_GPR_SIZE      = 0x4000,
+ 
+     FSL_IMX6UL_IOMUXC_ADDR          = 0x020E0000,
+-    FSL_IMX6UL_IOMUXC_SIZE          = 0x700,
++    FSL_IMX6UL_IOMUXC_SIZE          = 0x4000,
++
++    FSL_IMX6UL_IOMUXC_SNVS_ADDR     = 0x02290000,
++    FSL_IMX6UL_IOMUXC_SNVS_SIZE     = 0x10000,
+ 
+     FSL_IMX6UL_GPC_ADDR             = 0x020DC000,
+ 

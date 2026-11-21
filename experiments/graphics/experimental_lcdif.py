@@ -1,0 +1,2 @@
+from pathlib import Path
+p=Path('/tmp/im6-graphics-qemu/qemu-11.1.0/hw/display/imx6ul_lcdif.c');s=p.read_text();n='    switch (reg) {\n    case A_CTRL:\n        if (!FIELD_EX32(oldv, CTRL, RUN)';s=s.replace(n,'    switch (reg) {\n    case A_CTRL:\n        if (s->regs[idx] & (1u << 31)) {\n            s->regs[idx] |= (1u << 30);\n        }\n        if (!FIELD_EX32(oldv, CTRL, RUN)');p.write_text(s)

@@ -1,0 +1,10 @@
+0x80000000 in ?? ()
+0x20c4038:	0x00029148
+Breakpoint 1 at 0x80b69bec
+
+Breakpoint 1, 0x80b69bec in ?? ()
+hit pc=0x80b69bec
+#0  0x80b69bec in ?? ()
+#1  0x80b94c40 in ?? ()
+Backtrace stopped: previous frame identical to this frame (corrupt stack?)
+0x20c4038:	[Inferior 1 (process 1) detached]

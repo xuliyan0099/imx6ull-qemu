@@ -1,0 +1,16 @@
+#!/bin/sh
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null
+echo
+echo "=== IMX6ULL QEMU linux framebuffer test ==="
+uname -a
+cat /proc/cmdline
+free | sed -n 2p
+ls -l /dev/fb0
+echo "--- drawing 800x480 color bars to /dev/fb0 ---"
+dd if=/colors.raw of=/dev/fb0 bs=4096 2>/dev/null
+echo "--- done ---"
+exec /bin/sh

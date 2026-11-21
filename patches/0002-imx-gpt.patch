@@ -1,0 +1,34 @@
+--- patch-a/hw/timer/imx_gpt.c	2026-11-21 13:22:58.093797599 +0800
++++ patch-b/hw/timer/imx_gpt.c	2026-11-21 13:26:49.183602642 +0800
+@@ -107,13 +107,13 @@
+ 
+ static const IMXClk imx6ul_gpt_clocks[] = {
+     CLK_NONE,      /* 000 No clock source */
+-    CLK_IPG,       /* 001 ipg_clk, 532MHz*/
++    CLK_IPG,       /* 001 ipg_clk */
+     CLK_IPG_HIGH,  /* 010 ipg_clk_highfreq */
+     CLK_EXT,       /* 011 External clock */
+     CLK_32k,       /* 100 ipg_clk_32k */
+-    CLK_NONE,      /* 101 not defined */
+-    CLK_NONE,      /* 110 not defined */
+-    CLK_NONE,      /* 111 not defined */
++    CLK_IPG,       /* 101 ipg_clk_s, used by i.MX6UL Linux */
++    CLK_IPG,       /* 110 ipg_clk_s */
++    CLK_IPG,       /* 111 ipg_clk_s */
+ };
+ 
+ static const IMXClk imx7_gpt_clocks[] = {
+@@ -156,6 +156,13 @@
+ 
+     s->freq = imx_ccm_get_clock_frequency(s->ccm,
+                                           s->clocks[clksrc]) / (1 + s->pr);
++    /*
++     * i.MX6UL Linux selects GPT CLKSRC=5 (ipg_clk_s) and expects 3MHz.
++     * QEMU's CLK_IPG is 66MHz, which would make guest time 22x fast.
++     */
++    if (clksrc == 5) {
++        s->freq = 3000000 / (1 + s->pr);
++    }
+ 
+     trace_imx_gpt_set_freq(clksrc, s->freq);
+ 

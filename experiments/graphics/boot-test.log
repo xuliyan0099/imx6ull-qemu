@@ -1,0 +1,33 @@
+
+[DDR boot] OCRAM 引导段启动：UART1 就绪，准备初始化 DDR
+[DDR boot] 参数集 512MB，镜像地址=0x80000000，长度 323624 字节
+[DDR boot] 开始写 DDR 序列表（共 60 条）
+[DDR boot]   已写 10 条
+[DDR boot]   已写 20 条
+[DDR boot]   已写 30 条
+[DDR boot]   已写 40 条
+[DDR boot]   已写 50 条
+[DDR boot]   已写 60 条
+[DDR boot] 序列写完，等待 DDR 初始化/校准完成
+[DDR boot] 延时结束，回读 MDCTL/CS0_END
+[DDR boot] MDCTL 回读正常，进入 DDR 自检（第一次访问 DDR 地址空间）
+[DDR boot] DDR 自检通过，写入字数 147459，等待调试器加载并校验镜像
+[DDR boot] 镜像已验证，地址 0x80000000，VBAR 已切换，跳进 DDR
+
+==================================================
+ FreeRTOS V11.3.1  /  i.MX6ULL Cortex-A7
+ 运行地址   : 0x80000000 (DDR (调试器直接下载))
+ DDR 引导   : 镜像 0x80000000，323624 字节，清 .bss 2220112 字节
+ DDR 参数   : MDCTL=0x84180000  CS0_END=0x0000004F  自检写入 147459 字
+ tick       : 1000 Hz (GPT1, OCR1=66000 counts)
+ 堆         : 32 KB (heap_4)
+ UART1      : 115200-8N1
+==================================================
+[main] 启动调度器，剩余堆 13608 字节
+[shell] 串口命令就绪，输入 help 查看命令
+imx6> LED #1 t=2
+[enet] PHY addr=1 id=0007:C0D1
+[enet] IPv4 192.168.50.2 mask 255.255.255.0 MAC 02:00:00:00:00:00
+[enet] link up 100 Mbps full duplex
+[touch] GT115x identified, 800x480
+[lvgl] 9.2.2, 800x

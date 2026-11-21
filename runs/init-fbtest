@@ -1,0 +1,16 @@
+#!/bin/sh
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null
+echo
+echo "=== IMX6ULL QEMU initramfs shell ==="
+echo "Kernel: $(uname -a)"
+echo "Cmdline: $(cat /proc/cmdline)"
+echo "Memory: $(free | sed -n 2p)"
+echo "MMC: $(cat /proc/partitions | grep mmc || echo none)"
+ls -l /dev/fb0 2>/dev/null
+dd if=/dev/urandom of=/dev/fb0 bs=4096 count=375 2>/dev/null
+echo "fb0 filled"
+exec /bin/sh

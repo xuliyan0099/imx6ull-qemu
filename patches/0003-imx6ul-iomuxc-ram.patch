@@ -1,0 +1,29 @@
+--- a/hw/arm/fsl-imx6ul.c
++++ b/hw/arm/fsl-imx6ul.c
+@@ -320,10 +320,13 @@
+     }
+ 
+     /*
+-     * IOMUXC
++     * IOMUXC: model as writable RAM so Linux pinctrl can program pad
++     * configuration without hitting an unimplemented-device abort.
+      */
+-    create_unimplemented_device("iomuxc", FSL_IMX6UL_IOMUXC_ADDR,
+-                                FSL_IMX6UL_IOMUXC_SIZE);
++    memory_region_init_ram(&s->iomuxc, OBJECT(dev), "imx6ul.iomuxc",
++                           0x1000, &error_abort);
++    memory_region_add_subregion(get_system_memory(), FSL_IMX6UL_IOMUXC_ADDR,
++                                &s->iomuxc);
+     create_unimplemented_device("iomuxc_gpr", FSL_IMX6UL_IOMUXC_GPR_ADDR,
+                                 FSL_IMX6UL_IOMUXC_GPR_SIZE);
+ 
+--- a/include/hw/arm/fsl-imx6ul.h
++++ b/include/hw/arm/fsl-imx6ul.h
+@@ -88,6 +88,7 @@
+     IMX6ULLCDIFState   lcdif;
+     MemoryRegion       rom;
+     MemoryRegion       caam;
++    MemoryRegion       iomuxc;
+     MemoryRegion       ocram;
+     MemoryRegion       ocram_alias;
+ 

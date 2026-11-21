@@ -1,0 +1,24 @@
+#!/bin/sh
+mount -t devtmpfs devtmpfs /dev 2>/dev/null
+mount -t proc proc /proc
+mount -t sysfs sysfs /sys
+mkdir -p /dev/pts
+mount -t devpts devpts /dev/pts 2>/dev/null
+echo
+echo "=== IMX6ULL QEMU initramfs shell ==="
+echo "Kernel: $(uname -a)"
+echo "Memory: $(free | sed -n 2p)"
+echo "MMC: $(cat /proc/partitions | grep mmc || echo none)"
+echo
+echo "=== network test ==="
+ifconfig eth0 10.0.2.15 netmask 255.255.255.0 up
+route add default gw 10.0.2.2 2>/dev/null
+sleep 5
+ifconfig eth0
+echo "--- wget ---"
+wget -O /tmp/index.html -T 8 http://10.0.2.2:8080/ 2>&1
+cat /tmp/index.html 2>/dev/null
+echo "--- ifconfig after ---"
+ifconfig eth0
+echo "=== network test done ==="
+exec /bin/sh
