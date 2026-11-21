@@ -29,7 +29,7 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 
 ## 启动
 
-双击 `scripts/run-virtual-board.cmd`，脚本会自动读取当前 WSL 的 IP，等待服务就绪后打开 `http://<WSL-IP>:8765/`，选择配置后点击启动。本机 WSL2 的 `localhost` 转发偶尔会失效，所以不要再手敲 `127.0.0.1:8765`；当前可用地址是 `http://172.21.19.53:8765/`，WSL 重启后 IP 可能变化。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-netui-2`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
+双击 `scripts/run-virtual-board.cmd`，脚本会自动读取当前 WSL 的 IP，等待服务就绪后打开 `http://<WSL-IP>:8765/`，选择配置后点击启动。本机 WSL2 的 `localhost` 转发偶尔会失效，所以不要再手敲 `127.0.0.1:8765`；当前可用地址是 `http://172.21.19.53:8765/`，WSL 重启后 IP 可能变化。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-netui-3`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
 
 
 
@@ -107,7 +107,7 @@ ping -c 2 10.0.2.2          # 2 received, 0% packet loss
 busybox wget http://example.com/   # 577 bytes，出站 HTTP 通
 ```
 
-网页板面新增 `03 / ETHERNET` 面板：显示 `ENET2 / FEC2 / eth1`、PHY `LAN8720A / SR8201F · RMII · addr 0x1`、`LINK UP`、`eth1 · 10.0.2.15`、`100Mbps/Full` 和 NAT 网关。`/api/status` 的 `net` 字段提供同一份状态。
+网页板面新增 `03 / ETHERNET` 面板：显示 `ENET2 / FEC2 / eth1`、PHY `LAN8720A / SR8201F · RMII · addr 0x1`、`LINK UP`、guest IP、链路速率和 NAT 网关。`/api/status` 的 `net` 字段提供同一份状态。Linux 和当前 FreeRTOS/LwIP 图形版都会报告 `[enet] link up`；当前 FreeRTOS 使用静态 `192.168.50.2`，面板会标注“静态 IP（非 NAT）”。只有镜像完全没有以太网驱动或协议栈时，面板才显示 `NO GUEST NET`，不会谎报 `LINK UP`。
 
 **实板接线**：MINI 底板板载 RJ45（内置隔离变压器），用 Cat5e/6 直通网线接路由器或交换机即可；100BASE-TX 只用 1/2（TX）、3/6（RX）两对线，支持 Auto-MDIX，不需要交叉线。ENET1 在 MINI 底板未引出。QEMU 不需要物理网线，`eth1` 的 `10.0.2.15` 由 user-mode NAT 提供，网关 `10.0.2.2`。
 

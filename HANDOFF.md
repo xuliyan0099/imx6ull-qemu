@@ -2,7 +2,7 @@
 
 更新日期为 2026-11-21。项目位于 `D:\Workspace\StudyNote\IM6\qemu`，WSL 路径为 `/mnt/d/Workspace/StudyNote/IM6/qemu`。运行平台为 Windows + WSL2 Ubuntu-24.04，QEMU 基于 11.1.0，机型为 `mcimx6ull-alientek`。
 
-当前服务版本为 `2026-11-22-official-linux-netui-2`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
+当前服务版本为 `2026-11-22-official-linux-netui-3`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
 
 ## BeeLink 局域网部署
 
@@ -220,7 +220,7 @@ ping -c 2 10.0.2.2  → 2 received, 0% packet loss
 busybox wget http://example.com/  → 577 bytes
 ```
 
-`eth1` 同样拿到 `10.0.2.15`（两条独立 slirp 网络），证明第二个 FEC 也能收发。网页板面新增 `03 / ETHERNET` 面板，显示 `ENET2 / FEC2 / eth1`、PHY `LAN8720A / SR8201F · RMII · addr 0x1`、`LINK UP`、`eth1 · 10.0.2.15`、`100Mbps/Full`，并在 `/api/status` 的 `net` 字段提供同样数据。
+`eth1` 同样拿到 `10.0.2.15`（两条独立 slirp 网络），证明第二个 FEC 也能收发。网页板面新增 `03 / ETHERNET` 面板，显示 `ENET2 / FEC2 / eth1`、PHY `LAN8720A / SR8201F · RMII · addr 0x1`、`LINK UP`、guest IP、链路速率，并在 `/api/status` 的 `net` 字段提供同样数据。当前 FreeRTOS/LwIP 图形版也会报告 `[enet] link up 100 Mbps full duplex` 和静态 `192.168.50.2`，面板据此显示 `LINK UP` 并标注“静态 IP（非 NAT）”。只有完全没有网络日志的镜像才显示 `NO GUEST NET`，不会把 QEMU 硬件模型误报成 guest 可用网口。
 
 实板接线：MINI 板载 RJ45（内置隔离变压器），Cat5e/6 直通网线接路由器/交换机；100BASE-TX 只用 1/2（TX）、3/6（RX）两对，支持 Auto-MDIX。QEMU 不需要物理接线，`eth1` 的 NAT 网关是 `10.0.2.2`。当前没有 TAP/bridge/局域网直连；需要 guest 被局域网访问时再补宿主 bridge 和 `qemu-bridge-helper` 权限。
 

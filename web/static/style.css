@@ -26,4 +26,5 @@
 .eth-wiring{margin-top:14px;border-top:1px dashed #4a6251;padding-top:12px;font-size:11px;line-height:1.85;color:#a9c0ad}
 .eth-wiring b{color:#c1ed74}
 .eth-wiring code{font:10px Consolas,monospace;color:#dcebd7;background:#0b130e;padding:1px 4px}
+.eth-guest-note{margin-top:9px;font:9px Consolas,monospace;color:#9cb49f;line-height:1.6;min-height:14px}
 @media(max-width:620px){.eth-main{grid-template-columns:1fr}.eth-specs{grid-template-columns:1fr}}

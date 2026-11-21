@@ -1,6 +1,6 @@
 # 浏览器虚拟开发板使用与接口
 
-更新日期为 2026-11-22，当前服务版本为 `2026-11-22-official-linux-netui-2`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
+更新日期为 2026-11-22，当前服务版本为 `2026-11-22-official-linux-netui-3`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
 
 ## 启动与升级
 
@@ -79,9 +79,9 @@ RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。�
 | `WS /ws/serial` | UART 字节输出及文本输入 |
 | `WS /ws/vnc` | noVNC binary WebSocket 到本地 VNC 的代理，GTK 模式不使用 |
 
-`net` 给网页以太网面板使用：`physical` 固定为 `ENET2 / FEC2 / eth1`，`soc_only` 表示 `eth0` 是 FEC1 的 SoC 级模拟、MINI 实板未引出；`link.eth1` 由串口启动日志里的 `eth1: Link is Up` 判断，`guest_ip` 为 `10.0.2.15`，`gateway` 为 `10.0.2.2`。
+`net` 给网页以太网面板使用：`physical` 固定为 `ENET2 / FEC2 / eth1`，`soc_only` 表示 `eth0` 是 FEC1 的 SoC 级模拟、MINI 实板未引出；`link.eth1` 由串口日志里的 `eth1: Link is Up` 或 FreeRTOS 的 `[enet] link up` 判断；`guest_net` 表示当前镜像是否已初始化以太网（看到 `eth1` 或 `[enet]` 日志即为 `true`），`guest_ip` 从 `inet addr:` 或 `[enet] IPv4` 提取，`gateway` 为 `10.0.2.2`。镜像完全没有网络驱动/协议栈时面板显示 `NO GUEST NET`，不会把 QEMU 的虚拟网卡误报成可用网口。
 
-`/api` 和 `/ws` 校验 query token 或 `X-Token`。服务校验 Host 和存在的 Origin，仅接受当前 localhost/127.0.0.1 地址。后端集中在 `web/server.py`，QMP 使用锁内串行请求，响应处理中跳过事件。状态主要来自进程管理和 API 操作，完整 QMP 事件同步仍待实现。
+`/api` 和 `/ws` 校验 query token 或 `X-Token`。服务校验 Host 和存在的 Origin，仅接受当前 `IM6_ALLOWED_HOSTS` 中的地址：默认 `localhost:8765`、`127.0.0.1:8765`，Windows 启动脚本会再追加当前 WSL IP。
 
 ## 验证命令
 

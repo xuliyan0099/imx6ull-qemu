@@ -11,7 +11,7 @@ def image_path(name):
     path = IMAGE_DIR / name
     return path if path.is_file() else ROOT / 'images' / name
 TOKEN = secrets.token_urlsafe(24)
-SERVICE_VERSION = '2026-11-22-official-linux-netui-2'
+SERVICE_VERSION = '2026-11-22-official-linux-netui-3'
 PORT = int(os.environ.get('IM6_WEB_PORT', '8765'))
 BIND_HOST = os.environ.get('IM6_BIND_HOST', '127.0.0.1')
 ALLOWED_HOSTS = {item.strip() for item in os.environ.get(
@@ -250,16 +250,26 @@ class Board:
 
     def network(self):
         text = bytes(self.history)
-        link0 = b'eth0: Link is Up' in text
-        link1 = b'eth1: Link is Up' in text
-        speed = '100Mbps/Full' if b'100Mbps/Full' in text else ''
+        low = text.lower()
+        link0 = b'eth0: link is up' in low
+        link1 = b'eth1: link is up' in low or b'[enet] link up' in low
+        if b'100mbps/full' in low:
+            speed = '100Mbps/Full'
+        elif b'100 mbps full duplex' in low:
+            speed = '100 Mbps/Full'
+        else:
+            speed = ''
+        match = re.search(rb'(?:inet addr:|\[enet\] ipv4\s+)(\d{1,3}(?:\.\d{1,3}){3})', text, re.I)
+        guest_ip = match.group(1).decode() if match else ('10.0.2.15' if link1 and self.profile in ('linux', 'linux-official') else '')
+        guest_net = bool(link1 or link0 or b'[enet]' in low or b'eth1:' in low)
         return {
             'physical': {'port':'ENET2','soc':'FEC2','iface':'eth1',
                          'phy':'LAN8720A / SR8201F','phy_addr':'0x1','mode':'RMII',
                          'connector':'RJ45 · 内置隔离变压器'},
             'soc_only': {'soc':'FEC1','iface':'eth0','wired':False},
             'link': {'eth1': link1, 'eth0': link0},
-            'guest_ip': '10.0.2.15' if link1 else '',
+            'guest_net': guest_net,
+            'guest_ip': guest_ip,
             'gateway': '10.0.2.2',
             'speed': speed,
             'nat': True,
