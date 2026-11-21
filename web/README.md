@@ -1,6 +1,6 @@
 # 浏览器虚拟开发板使用与接口
 
-更新日期为 2026-11-22，当前服务版本为 `2026-11-22-official-linux-audio-1`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
+更新日期为 2026-11-22，当前服务版本为 `2026-11-22-official-linux-netui-2`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
 
 ## 启动与升级
 
@@ -69,7 +69,7 @@ RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。�
 | `GET /`、`GET /static/*` | 页面及本地资源 |
 | `GET /token` | 当前服务令牌 |
 | `GET /version` | 服务名、版本、launch_id、display 模式和 `audio` 后端 |
-| `GET /api/status` | state、profile、error、boot_state、boot_message、led |
+| `GET /api/status` | state、profile、error、boot_state、boot_message、led、`net` |
 | `GET /api/serial` | 串口历史最后 12000 字节，便于脚本取证 |
 | `GET /audio.wav` | WAV 后端的音频输出；文件不存在时 404 |
 | `POST /api/start` | JSON profile，仅接受五种固定配置 |
@@ -78,6 +78,8 @@ RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。�
 | `POST /api/manual` | 取消自动引导 |
 | `WS /ws/serial` | UART 字节输出及文本输入 |
 | `WS /ws/vnc` | noVNC binary WebSocket 到本地 VNC 的代理，GTK 模式不使用 |
+
+`net` 给网页以太网面板使用：`physical` 固定为 `ENET2 / FEC2 / eth1`，`soc_only` 表示 `eth0` 是 FEC1 的 SoC 级模拟、MINI 实板未引出；`link.eth1` 由串口启动日志里的 `eth1: Link is Up` 判断，`guest_ip` 为 `10.0.2.15`，`gateway` 为 `10.0.2.2`。
 
 `/api` 和 `/ws` 校验 query token 或 `X-Token`。服务校验 Host 和存在的 Origin，仅接受当前 localhost/127.0.0.1 地址。后端集中在 `web/server.py`，QMP 使用锁内串行请求，响应处理中跳过事件。状态主要来自进程管理和 API 操作，完整 QMP 事件同步仍待实现。
 

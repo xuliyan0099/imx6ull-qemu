@@ -29,7 +29,7 @@ else
   docker_cmd=(sudo docker)
 fi
 
-audio_backend="${IM6_AUDIO_BACKEND:-auto}"
+audio_backend="${IM6_AUDIO_BACKEND:-wav}"
 audio_device="${IM6_AUDIO_DEVICE:-default}"
 audio_run=()
 if [ "$audio_backend" = "auto" ]; then

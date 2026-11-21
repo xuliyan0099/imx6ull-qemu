@@ -2,7 +2,7 @@
 
 更新日期为 2026-11-21。项目位于 `D:\Workspace\StudyNote\IM6\qemu`，WSL 路径为 `/mnt/d/Workspace/StudyNote/IM6/qemu`。运行平台为 Windows + WSL2 Ubuntu-24.04，QEMU 基于 11.1.0，机型为 `mcimx6ull-alientek`。
 
-当前服务版本为 `2026-11-22-official-linux-audio-1`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
+当前服务版本为 `2026-11-22-official-linux-netui-2`，版本常量位于 `web/server.py`。`web/launch.py` 每次执行都会重启默认会话。默认图形走 VNC/noVNC；设置 `IM6_DISPLAY=gtk` 时改走 WSLg 原生 GTK 窗口，`scripts/run-virtual-board-gtk.cmd` 是本地低延迟入口。启动器将 `IM6_IMAGE_DIR` 设为 `/opt/im6/images`，服务优先读 WSL ext4，缺失文件回退到项目 `images/`。
 
 ## BeeLink 局域网部署
 
@@ -211,16 +211,18 @@ lsusb: Bus 001 Device 002: ID 46f4:0002
 
 但原厂 4.1.15 配置是 `CONFIG_SND_USB_AUDIO=m`，rootfs 的 `/lib/modules` 却是空目录，且 `CONFIG_MODVERSIONS=y`、`CONFIG_MODULE_FORCE_LOAD` 未开，无法拿通用内核模块直接 `insmod`。因此 `dmesg` 仍为 `No soundcards found`。这说明 **QEMU 设备链路已通，guest 缺与内核完全同源的驱动模块**；换内建 USB Audio Class 的内核或补编同源模块即可使用 `/audio.wav` 或 ALSA 后端。服务端支持 `IM6_AUDIO_BACKEND=none|wav|alsa`、`IM6_AUDIO_DEVICE`、`IM6_AUDIO_FILE`，`/audio.wav` 为下载入口，`/version` 返回 `audio`。BeeLink 的 `run.sh` 默认 `wav`，存在 `/dev/snd` 时可显式用 ALSA 并映射设备。
 
-**以太网**使用 QEMU user-mode NAT，Linux profile 两条 `-nic user,model=imx.enet`。guest 实测：
+**以太网**使用 QEMU user-mode NAT，Linux profile 两条 `-nic user,model=imx.enet`。MINI 实板只保留 **ENET2/FEC2**，对应 QEMU `eth1`；`eth0` 是 FEC1，仅保留 SoC 能力，MINI 底板没有引出。guest 实测：
 
 ```
 eth0  inet addr:10.0.2.15  Mask:255.255.255.0
+eth1  inet addr:10.0.2.15  Mask:255.255.255.0
 ping -c 2 10.0.2.2  → 2 received, 0% packet loss
 busybox wget http://example.com/  → 577 bytes
-ping -c 2 223.5.5.5  → 2 received, 0% packet loss
 ```
 
-`eth1` 同样拿到 `10.0.2.15`（两条独立 slirp 网络），证明第二个 FEC 也能收发。双 FEC 是 SoC 能力，MINI 实板只引出一路 RJ45。当前没有 TAP/bridge/局域网直连；需要 guest 被局域网访问时再补宿主 bridge 和 `qemu-bridge-helper` 权限。
+`eth1` 同样拿到 `10.0.2.15`（两条独立 slirp 网络），证明第二个 FEC 也能收发。网页板面新增 `03 / ETHERNET` 面板，显示 `ENET2 / FEC2 / eth1`、PHY `LAN8720A / SR8201F · RMII · addr 0x1`、`LINK UP`、`eth1 · 10.0.2.15`、`100Mbps/Full`，并在 `/api/status` 的 `net` 字段提供同样数据。
+
+实板接线：MINI 板载 RJ45（内置隔离变压器），Cat5e/6 直通网线接路由器/交换机；100BASE-TX 只用 1/2（TX）、3/6（RX）两对，支持 Auto-MDIX。QEMU 不需要物理接线，`eth1` 的 NAT 网关是 `10.0.2.2`。当前没有 TAP/bridge/局域网直连；需要 guest 被局域网访问时再补宿主 bridge 和 `qemu-bridge-helper` 权限。
 
 ## 已知问题与后续工作
 

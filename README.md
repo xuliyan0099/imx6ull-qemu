@@ -29,7 +29,7 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 
 ## 启动
 
-双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-audio-1`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
+双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-netui-2`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
 
 
 
@@ -98,16 +98,20 @@ IM6_WEB_PORT=8766 IM6_AUDIO_BACKEND=wav IM6_AUDIO_FILE=/tmp/im6-audio.wav \
 IM6_AUDIO_BACKEND=alsa IM6_AUDIO_DEVICE=plughw:0,3 bash deploy/beelink/run.sh
 ```
 
-**以太网**：机型保留 SoC 双 FEC，Linux profile 默认两条 `-nic user,model=imx.enet`，即 QEMU user-mode NAT。已实测 guest：
+**以太网**：机型保留 SoC 双 FEC，Linux profile 默认两条 `-nic user,model=imx.enet`，即 QEMU user-mode NAT。MINI 实板只保留一路百兆网口 **ENET2/FEC2**，对应 QEMU 的 `eth1`；`eth0` 是 FEC1，仅代表 SoC 能力，MINI 底板未引出。已实测 guest：
 
 ```
 eth0  inet addr:10.0.2.15  Mask:255.255.255.0
+eth1  inet addr:10.0.2.15  Mask:255.255.255.0
 ping -c 2 10.0.2.2          # 2 received, 0% packet loss
 busybox wget http://example.com/   # 577 bytes，出站 HTTP 通
-ping -c 2 223.5.5.5         # 2 received, 0% packet loss
 ```
 
-这是出站 NAT，不是局域网桥接；MINI 实板只有一路 RJ45。若需要 guest 暴露到局域网，需宿主建 TAP/bridge 并给 QEMU 加权限，当前未默认启用。
+网页板面新增 `03 / ETHERNET` 面板：显示 `ENET2 / FEC2 / eth1`、PHY `LAN8720A / SR8201F · RMII · addr 0x1`、`LINK UP`、`eth1 · 10.0.2.15`、`100Mbps/Full` 和 NAT 网关。`/api/status` 的 `net` 字段提供同一份状态。
+
+**实板接线**：MINI 底板板载 RJ45（内置隔离变压器），用 Cat5e/6 直通网线接路由器或交换机即可；100BASE-TX 只用 1/2（TX）、3/6（RX）两对线，支持 Auto-MDIX，不需要交叉线。ENET1 在 MINI 底板未引出。QEMU 不需要物理网线，`eth1` 的 `10.0.2.15` 由 user-mode NAT 提供，网关 `10.0.2.2`。
+
+这是出站 NAT，不是局域网桥接。若需要 guest 暴露到局域网，需宿主建 TAP/bridge 并给 QEMU 加权限，当前未默认启用。
 
 ## 正点原子 I.MX6ULL MINI 出厂 Linux 启动路径
 
@@ -138,7 +142,7 @@ Windows 启动器 → WSL aiohttp 服务 → QEMU BootROM → 现有 U-Boot
 | FreeRTOS eMMC、DS0、RESET | `web/tests/smoke_freertos.py`，已有启动和复位实测                                     |
 | 图形 FreeRTOS eMMC、RESET  | `web/tests/smoke_graphics.py`，已有启动和复位实测                                     |
 | USB Audio               | guest `lsusb` 见 `46f4:0002`，`usb 1-1: new high-speed USB device`；原厂内核配置有 `SND_USB_AUDIO=m` 但缺模块，故无声卡 |
-| 以太网                     | guest 自动取得 `10.0.2.15`，ping 网关/`223.5.5.5`、`busybox wget example.com` 均通过；QEMU 用户态 NAT，MINI 实板仅一路 RJ45 |
+| 以太网                     | 实板 `ENET2/FEC2` ↔ QEMU `eth1`，`10.0.2.15`；网页 `03 / ETHERNET` 显示 LINK UP/100Mbps/Full；NAT 网关 `10.0.2.2` |
 
 证据对应各自测试阶段。文档更新期间进行了文件、入口和链接核对，系统运行结果沿用已有实测记录。
 

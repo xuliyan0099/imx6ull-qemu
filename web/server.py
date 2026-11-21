@@ -11,7 +11,7 @@ def image_path(name):
     path = IMAGE_DIR / name
     return path if path.is_file() else ROOT / 'images' / name
 TOKEN = secrets.token_urlsafe(24)
-SERVICE_VERSION = '2026-11-22-official-linux-audio-1'
+SERVICE_VERSION = '2026-11-22-official-linux-netui-2'
 PORT = int(os.environ.get('IM6_WEB_PORT', '8765'))
 BIND_HOST = os.environ.get('IM6_BIND_HOST', '127.0.0.1')
 ALLOWED_HOSTS = {item.strip() for item in os.environ.get(
@@ -248,6 +248,23 @@ class Board:
         finally:
             if self.boot_queue is queue: self.boot_queue = None
 
+    def network(self):
+        text = bytes(self.history)
+        link0 = b'eth0: Link is Up' in text
+        link1 = b'eth1: Link is Up' in text
+        speed = '100Mbps/Full' if b'100Mbps/Full' in text else ''
+        return {
+            'physical': {'port':'ENET2','soc':'FEC2','iface':'eth1',
+                         'phy':'LAN8720A / SR8201F','phy_addr':'0x1','mode':'RMII',
+                         'connector':'RJ45 · 内置隔离变压器'},
+            'soc_only': {'soc':'FEC1','iface':'eth0','wired':False},
+            'link': {'eth1': link1, 'eth0': link0},
+            'guest_ip': '10.0.2.15' if link1 else '',
+            'gateway': '10.0.2.2',
+            'speed': speed,
+            'nat': True,
+        }
+
     async def poll_led(self):
         try:
             while self.proc and self.proc.returncode is None:
@@ -307,7 +324,7 @@ async def version(request): return web.json_response({'service':'im6-virtual-boa
 async def audio(request):
     if not AUDIO_FILE.is_file(): raise web.HTTPNotFound()
     return web.FileResponse(AUDIO_FILE, headers={'Cache-Control':'no-store'})
-async def status(request): return web.json_response({'state':board.state,'profile':board.profile,'error':board.error,'boot_state':board.boot_state,'boot_message':board.boot_message,'led':board.led_state})
+async def status(request): return web.json_response({'state':board.state,'profile':board.profile,'error':board.error,'boot_state':board.boot_state,'boot_message':board.boot_message,'led':board.led_state,'net':board.network()})
 async def serial_text(request): return web.json_response({'text':bytes(board.history).decode(errors='replace')[-12000:]})
 async def action(request):
     try:
