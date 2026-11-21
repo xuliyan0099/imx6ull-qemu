@@ -29,7 +29,7 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 
 ## 启动
 
-双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-netui-2`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
+双击 `scripts/run-virtual-board.cmd`，脚本会自动读取当前 WSL 的 IP，等待服务就绪后打开 `http://<WSL-IP>:8765/`，选择配置后点击启动。本机 WSL2 的 `localhost` 转发偶尔会失效，所以不要再手敲 `127.0.0.1:8765`；当前可用地址是 `http://172.21.19.53:8765/`，WSL 重启后 IP 可能变化。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-22-official-linux-netui-2`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
 
 
 

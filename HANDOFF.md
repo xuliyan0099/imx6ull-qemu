@@ -243,7 +243,7 @@ busybox wget http://example.com/  → 577 bytes
 
 ## 会话和运行环境
 
-默认 HTTP 监听 `127.0.0.1:8765`，VNC 监听 `127.0.0.1:5977`。手动启动 server 可通过 `IM6_WEB_PORT` 和 `IM6_VNC_DISPLAY` 修改，launch 固定连接 8765。QMP、UART 使用 `/tmp/im6-board-*/qmp` 和 `serial` Unix socket。正常关闭删除会话目录和 overlay，异常退出可能遗留临时目录。
+默认 HTTP 监听 `127.0.0.1:8765`，VNC 监听 `127.0.0.1:5977`。Windows 启动脚本现在会把 `IM6_BIND_HOST=0.0.0.0` 并带上当前 WSL IP，浏览器使用 `http://<WSL-IP>:8765/`；本机 WSL2 `localhost` 转发曾失效，`127.0.0.1:8765` 可能被拒绝，不代表服务没启动。手动启动 server 可通过 `IM6_WEB_PORT` 和 `IM6_VNC_DISPLAY` 修改，launch 固定连接 8765。QMP、UART 使用 `/tmp/im6-board-*/qmp` 和 `serial` Unix socket。正常关闭删除会话目录和 overlay，异常退出可能遗留临时目录。
 
 依赖、接口、错误处理详见 [浏览器手册](web/README.md)，当前设计与计划映射见 [设计](docs/plans/2026-11-21-web-virtual-board-design.md) 和 [计划对照](docs/plans/2026-11-21-web-virtual-board-plan.md)。文档审校依据持久化代码及现有验证记录，本轮更新没有新增运行验收结论。
 

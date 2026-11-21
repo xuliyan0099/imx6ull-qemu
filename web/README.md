@@ -4,7 +4,7 @@
 
 ## 启动与升级
 
-Windows 双击 `scripts/run-virtual-board.cmd`。该脚本启动 Ubuntu-24.04 中的 `web/launch.py`，随后打开 `http://localhost:8765/`。launch 每次结束本项目默认 8765 服务及其默认 VNC 会话，再启动新服务，包括同版本服务。优先发送 SIGTERM 清理，等待 8 秒后强制结束残留服务，再清理 QEMU，超时后使用 SIGKILL。旧会话的临时磁盘写入随重启丢弃。启动脚本会等待服务可访问后打开浏览器，最多等待约 30 秒。服务更新后刷新页面以取得新令牌。
+Windows 双击 `scripts/run-virtual-board.cmd`。该脚本先读取当前 WSL IP，再启动 Ubuntu-24.04 中的 `web/launch.py`，随后打开 `http://<WSL-IP>:8765/`；本机 WSL2 的 `localhost` 转发不可靠，不要依赖 `127.0.0.1:8765`。launch 每次结束本项目默认 8765 服务及其默认 VNC 会话，再启动新服务，包括同版本服务。优先发送 SIGTERM 清理，等待 8 秒后强制结束残留服务，再清理 QEMU，超时后使用 SIGKILL。旧会话的临时磁盘写入随重启丢弃。启动脚本会等待服务可访问后打开浏览器，最多等待约 45 秒。服务更新后刷新页面以取得新令牌。
 
 本地调试优先使用 GTK 原生窗口，绕过 VNC/noVNC：
 
