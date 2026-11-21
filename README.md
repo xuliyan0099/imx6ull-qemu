@@ -1,8 +1,24 @@
-# i.MX6ULL QEMU 浏览器虚拟开发板
+# 正点原子 I.MX6ULL MINI QEMU 浏览器虚拟开发板
 
-更新日期为 2026-11-21。项目目录为 `D:\Workspace\StudyNote\IM6\qemu`，机型为 `mcimx6ull-alientek`，运行于 Windows + WSL2 Ubuntu-24.04。
+本项目模拟的是 **正点原子 I.MX6ULL MINI**（Alientek I.MX6U-MINI，eMMC 核心板），不是 NXP 官方 `mcimx6ul-evk` 参考板，也不是正点原子 ALPHA 大底板。更新日期为 2026-11-21。项目目录为 `D:\Workspace\StudyNote\IM6\qemu`，QEMU 机型名为 `mcimx6ull-alientek`，运行于 Windows + WSL2 Ubuntu-24.04。
 
-当前已验证出厂 Linux 自动显示原厂桌面、通过模拟触摸打开设置页，以及真机 FreeRTOS 图形固件显示 LVGL 并响应点击。当前状态和交接入口见 [HANDOFF](HANDOFF.md)，操作说明见 [浏览器使用手册](web/README.md)。
+当前已验证该板的出厂 Linux 自动显示原厂桌面、通过模拟触摸打开设置页，以及真机 FreeRTOS 图形固件显示 LVGL 并响应点击。当前状态和交接入口见 [HANDOFF](HANDOFF.md)，操作说明见 [浏览器使用手册](web/README.md)。
+
+## 目标开发板
+
+| 项目 | 正点原子 I.MX6ULL MINI |
+| --- | --- |
+| 开发板 | 正点原子 I.MX6ULL MINI（I.MX6U-MINI，eMMC 版） |
+| 核心板 | ATK-CL6Y2CB，BTB 接口，eMMC 版本 |
+| SoC | NXP MCIMX6Y2CVM08AB，ARM Cortex-A7，800MHz（实际约 792MHz） |
+| 内存 | 512MB DDR3L |
+| 存储 | 8GB eMMC，另有 TF 卡接口 |
+| 显示 | 1 路 RGB LCD；项目当前按 7 寸 800×480 桌面验证 |
+| 触摸 | Goodix 电容触摸；QEMU 使用 GT1158/gt9xx 兼容模型 |
+| 网络 | 1 路 10/100M 以太网；QEMU 保留 SoC 双 FEC 模型用于实验 |
+| 其他外设 | USB Host/OTG、CAN、RS485、摄像头、SDIO WiFi、蜂鸣器、用户按键等 |
+
+QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对应的目标板就是 **正点原子 I.MX6ULL MINI**。MINI 底板只引出一路 RJ45，因此 QEMU 里的双 FEC 只代表 SoC 模型能力，不代表实板有两个网口。
 
 ![出厂 Linux 原厂桌面](runs/official-hardware.png)
 
@@ -13,14 +29,14 @@
 | 配置 ID | 页面用途 | QEMU 文件 | 启动与输入 |
 | --- | --- | --- | --- |
 | `linux` | BusyBox 测试 | `bin/qemu-system-arm-linux` | U-Boot 从临时 vvfat 加载原厂内核、适配 DTB、initramfs |
-| `linux-official` | 正点原子出厂系统 | `bin/qemu-system-arm-official-linux` | U-Boot 引导原厂内核及 rootfs，Goodix 中断触摸 |
+| `linux-official` | 正点原子 I.MX6ULL MINI 出厂系统 | `bin/qemu-system-arm-official-linux` | U-Boot 引导原厂内核及 rootfs，Goodix 中断触摸 |
 | `freertos` | eMMC 精简版 | `bin/qemu-system-arm-linux` | U-Boot 裸块读取 OCRAM 程序，无图形应用 |
 | `freertos-gui-emmc` | 真机图形 eMMC | `bin/qemu-system-arm-graphics-linux` | U-Boot 加载两段固件，GDB 校验并完成原有 DDR 握手 |
 | `freertos-gui` | 真机图形 ELF | `bin/qemu-system-arm-graphics-linux` | 直接加载 ELF，GDB 校验 DDR，轮询 GT1158 |
 
 LCD 通过 QEMU VNC 和 noVNC 实时显示。鼠标采用清晰的箭头光标，三个图形配置开放指针输入。RESET 使用 QMP `system_reset`，暂停和继续使用 `stop`、`cont`。DS0 按 GPIO1_IO03 的方向和数据寄存器采样。用户 KEY 尚未接线。
 
-## 出厂 Linux 启动路径
+## 正点原子 I.MX6ULL MINI 出厂 Linux 启动路径
 
 ```text
 Windows 启动器 → WSL aiohttp 服务 → QEMU BootROM → 现有 U-Boot
@@ -44,7 +60,7 @@ Windows 启动器 → WSL aiohttp 服务 → QEMU BootROM → 现有 U-Boot
 | FreeRTOS 图形与触摸 | `experiments/graphics/boot-test.log`、`experiments/graphics/screen.png` |
 | FreeRTOS eMMC、DS0、RESET | `web/tests/smoke_freertos.py`，已有启动和复位实测 |
 | 图形 FreeRTOS eMMC、RESET | `web/tests/smoke_graphics.py`，已有启动和复位实测 |
-| 双 FEC | 历史 U-Boot ping 和 Linux wget 下载验证 |
+| 以太网 | 历史 U-Boot ping 和 Linux wget 下载验证；QEMU 保留双 FEC 模型，MINI 实板仅一路 RJ45 |
 
 证据对应各自测试阶段。文档更新期间进行了文件、入口和链接核对，系统运行结果沿用已有实测记录。
 
@@ -70,6 +86,7 @@ rootfs 构建要求目标尚未存在，读取用户提供的出厂压缩包。�
 - Linux QMP 热复位曾循环进入 U-Boot，出厂图形配置的热复位尚待独立回归。
 - 出厂 Linux 复测曾出现一次 `n_tty_receive_buf_common` 早期 Oops，后续冷启动通过，根因待定位。
 - Goodix 为单点兼容模型，四角、拖动、长时间运行和完整复位地址选择仍待测试或实现。
+- U-Boot 日志中的 `TFT7016 (1024x600)` 与 Linux 桌面实际 800×480 尚未统一，面板参数需按实板屏幕继续校准。
 - DDR 采用寄存器及握手行为模拟，eMMC 使用 SD 卡语义替身，音频、摄像头等外设仍有缺口。
 - 图形 FreeRTOS 依赖现有调试器加载许可握手，真板自主 eMMC 启动及同镜像刷写仍待实板验证。
 
