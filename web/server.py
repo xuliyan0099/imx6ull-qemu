@@ -5,9 +5,10 @@ from aiohttp import web, WSMsgType
 ROOT = Path(__file__).resolve().parent.parent
 STATIC = ROOT / 'web/static'
 TOKEN = secrets.token_urlsafe(24)
-SERVICE_VERSION = '2026-11-21-official-linux-hardware-1'
+SERVICE_VERSION = '2026-11-21-official-linux-hardware-3'
 PORT = int(os.environ.get('IM6_WEB_PORT', '8765'))
 VNC_DISPLAY = int(os.environ.get('IM6_VNC_DISPLAY', '77'))
+DISPLAY_MODE = os.environ.get('IM6_DISPLAY', 'vnc')
 
 class Board:
     def __init__(self):
@@ -67,7 +68,10 @@ class Board:
                 'freertos-gui': 'bin/qemu-system-arm-graphics-linux',
                 'freertos-gui-emmc': 'bin/qemu-system-arm-graphics-linux',
             }.get(profile, 'bin/qemu-system-arm-linux')
-            args = [str(ROOT/qemu_binary),'-M','mcimx6ull-alientek','-m','512','-smp','1', '-drive',f'if=sd,index=0,format={sd_format},file={sd}', '-drive',f'if=sd,index=1,format=qcow2,file={overlay}', '-qmp',f'unix:{self.work}/qmp,server=on,wait=off','-serial',f'unix:{self.work}/serial,server=on,wait=on','-display','none','-L','/usr/share/qemu','-vnc',f'127.0.0.1:{VNC_DISPLAY}','-monitor','none']
+            sd_cache = '' if sd.startswith('fat:rw:') else ',cache=unsafe'
+            display_args = (['-display','gtk,grab-on-hover=off'] if DISPLAY_MODE == 'gtk'
+                            else ['-display','none','-vnc',f'127.0.0.1:{VNC_DISPLAY},lossy=on'])
+            args = [str(ROOT/qemu_binary),'-accel','tcg,thread=multi,tb-size=512','-M','mcimx6ull-alientek','-m','512','-smp','1', '-drive',f'if=sd,index=0,format={sd_format},file={sd}{sd_cache}', '-drive',f'if=sd,index=1,format=qcow2,file={overlay},cache=unsafe', '-qmp',f'unix:{self.work}/qmp,server=on,wait=off','-serial',f'unix:{self.work}/serial,server=on,wait=on','-L','/usr/share/qemu',*display_args,'-monitor','none']
             if profile == 'linux-official':
                 args += ['-device',f'loader,file={ROOT}/images/zImage,addr=0x80800000,force-raw=on','-device',f'loader,file={ROOT}/images/board-alientek-official-gui.dtb,addr=0x83000000,force-raw=on']
             if profile in ('freertos', 'freertos-gui', 'freertos-gui-emmc'): args += ['-watchdog-action','none']
@@ -232,7 +236,7 @@ class Board:
                     self.led_state = (not bool(data & 8)) if direction & 8 else None
                 except (ValueError, RuntimeError, asyncio.TimeoutError, ConnectionError):
                     self.led_state = None
-                await asyncio.sleep(.15)
+                await asyncio.sleep(.5)
         except asyncio.CancelledError:
             pass
         finally:
@@ -276,7 +280,7 @@ async def guard(request, handler):
 
 async def index(request): return web.FileResponse(STATIC/'index.html')
 async def token(request): return web.json_response({'token':TOKEN})
-async def version(request): return web.json_response({'service':'im6-virtual-board','version':SERVICE_VERSION,'launch_id':os.environ.get('IM6_LAUNCH_ID','')})
+async def version(request): return web.json_response({'service':'im6-virtual-board','version':SERVICE_VERSION,'launch_id':os.environ.get('IM6_LAUNCH_ID',''),'display':DISPLAY_MODE})
 async def status(request): return web.json_response({'state':board.state,'profile':board.profile,'error':board.error,'boot_state':board.boot_state,'boot_message':board.boot_message,'led':board.led_state})
 async def action(request):
     try:

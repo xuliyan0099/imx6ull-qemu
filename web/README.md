@@ -1,10 +1,18 @@
 # 浏览器虚拟开发板使用与接口
 
-更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-1`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
+更新日期为 2026-11-21，当前服务版本为 `2026-11-21-official-linux-hardware-3`。项目根目录为 `D:\Workspace\StudyNote\IM6\qemu`，下文路径相对该目录。
 
 ## 启动与升级
 
 Windows 双击 `scripts/run-virtual-board.cmd`。该脚本启动 Ubuntu-24.04 中的 `web/launch.py`，随后打开 `http://localhost:8765/`。launch 每次结束本项目默认 8765 服务及其默认 VNC 会话，再启动新服务，包括同版本服务。优先发送 SIGTERM 清理，等待 8 秒后强制结束残留服务，再清理 QEMU，超时后使用 SIGKILL。旧会话的临时磁盘写入随重启丢弃。启动脚本会等待服务可访问后打开浏览器，最多等待约 30 秒。服务更新后刷新页面以取得新令牌。
+
+本地调试优先使用 GTK 原生窗口，绕过 VNC/noVNC：
+
+```powershell
+scripts\run-virtual-board-gtk.cmd
+```
+
+该脚本设置 `IM6_DISPLAY=gtk`，QEMU 通过 WSLg 直接打开窗口，鼠标不会被 VNC 代理和浏览器缩放拖慢。浏览器页面只保留串口、电源和状态控制，画面显示“LOCAL GTK WINDOW”。GTK 窗口关闭或服务停止后，下一次启动会清理旧 QEMU。
 
 WSL 手动启动可使用以下命令。
 
@@ -44,7 +52,7 @@ LCD 来自 QEMU VNC，noVNC 按比例缩放。图形 Linux 和两个图形 FreeR
 
 串口以 `<pre>` 展示输出，输入框按行发送。后端保留最多 128 KiB 输出，前端也限制显示文本长度。自动引导期间输入框禁用，可点击手动接管取消引导。超时或引导失败后进入 manual 状态并保留串口操作。
 
-RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。暂停状态需先继续运行才能复位，自动引导期间暂停会被拒绝。DS0 每约 150 ms 读取 GPIO1 的 DR/GDIR，bit 3 配置为输出且低电平时亮，输入或采样失败时显示未知。页面每约 200 ms 查询状态。用户 KEY 为未接线占位。
+RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。暂停状态需先继续运行才能复位，自动引导期间暂停会被拒绝。DS0 每约 500 ms 读取 GPIO1 的 DR/GDIR，bit 3 配置为输出且低电平时亮，输入或采样失败时显示未知。页面每约 500 ms 查询状态。用户 KEY 为未接线占位。
 
 页面关闭按钮停止当前 QEMU，会丢弃该会话写入。关闭浏览器页签后，服务及 QEMU 可以继续运行。WSL 服务可通过 Ctrl+C 正常退出并执行清理。Windows 启动脚本启动的服务窗口应保留以便查看错误，强制关闭窗口的清理行为尚需独立验证。
 
@@ -58,14 +66,14 @@ RESET 使用 QMP `system_reset`，暂停使用 `stop`，继续使用 `cont`。�
 | --- | --- |
 | `GET /`、`GET /static/*` | 页面及本地资源 |
 | `GET /token` | 当前服务令牌 |
-| `GET /version` | 服务名及版本 |
+| `GET /version` | 服务名、版本、launch_id 和 display 模式 |
 | `GET /api/status` | state、profile、error、boot_state、boot_message、led |
 | `POST /api/start` | JSON profile，仅接受五种固定配置 |
 | `POST /api/stop` | 停止并清理当前会话 |
 | `POST /api/pause`、`resume`、`reset` | QMP 控制 |
 | `POST /api/manual` | 取消自动引导 |
 | `WS /ws/serial` | UART 字节输出及文本输入 |
-| `WS /ws/vnc` | noVNC binary WebSocket 到本地 VNC 的代理 |
+| `WS /ws/vnc` | noVNC binary WebSocket 到本地 VNC 的代理，GTK 模式不使用 |
 
 `/api` 和 `/ws` 校验 query token 或 `X-Token`。服务校验 Host 和存在的 Origin，仅接受当前 localhost/127.0.0.1 地址。后端集中在 `web/server.py`，QMP 使用锁内串行请求，响应处理中跳过事件。状态主要来自进程管理和 API 操作，完整 QMP 事件同步仍待实现。
 
@@ -89,6 +97,25 @@ python3 web/tests/smoke_graphics.py 8765
 ```
 
 精简测试固定使用 8765，finally 会 stop 当前会话，执行前应确认空闲。图形测试支持端口参数且有空闲检查。已有实测覆盖自动启动、精简 DS0、精简及图形 eMMC RESET。上述脚本均需真实 QEMU，当前没有计划初稿所列的 unittest 单元测试文件。
+
+## 性能取舍
+
+Windows x86 宿主没有 ARM KVM，QEMU 只能走 TCG 单 vCPU 软件模拟。当前默认参数：
+
+- `-accel tcg,thread=multi,tb-size=512`，增大翻译块缓存，减少重复翻译。
+- VNC 使用 `127.0.0.1`、`lossy=on`，只在本机传输，允许有损压缩降低带宽。
+- noVNC `qualityLevel=4`、`compressionLevel=1`，以画质换延迟。
+- 状态和 LED 轮询从 200/150 ms 放宽到 500 ms，减少浏览器与后端空转。
+- eMMC/rootfs overlay 使用 `cache=unsafe`，临时会话数据本来就会丢弃；`linux` 的 vvfat 不加此选项。
+
+在 Ryzen 7 PRO 8845HS + WSL2 上实测：官方 Linux 冷启动约 1 分 51 秒（调整前约 1 分 54 秒），桌面空闲 QEMU 约 10% CPU，VNC 指针探测约 5.1%；FreeRTOS 图形配置约 100% 单核 CPU，属于 guest 自身持续运行，不是 noVNC 单独造成。TCG 是主要上限，参数调整只能减少传输和轮询开销，不能把 ARM 模拟变成硬件虚拟化。
+
+如果仍觉得卡，按以下顺序处理：
+
+1. 本地调试改用 `scripts\run-virtual-board-gtk.cmd`，完全不经过 noVNC；这是目前最直接的低延迟方式。
+2. 确认没有同时运行多个 QEMU；8GB eMMC 和 2GB rootfs 的 overlay 在机械盘或被杀毒软件扫描时会明显拖慢。
+3. 需要浏览器页面时，本地也可以用原生 VNC 客户端连接 `127.0.0.1:5977`（display 77），绕过 noVNC 的 WebSocket 代理和浏览器缩放；QEMU 已启用 `lossy=on`。远程访问时才需要额外处理端口转发。
+4. 需要接近真机速度，只能在 ARM 主机上用 KVM，或直接上真板；x86 Windows 无法给 ARM guest 提供 KVM。
 
 ## 故障与待验收项
 

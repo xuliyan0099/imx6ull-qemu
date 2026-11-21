@@ -24,7 +24,7 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 
 ## 启动
 
-双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。服务版本为 `2026-11-21-official-linux-hardware-1`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
+双击 `scripts/run-virtual-board.cmd`，浏览器打开 `http://localhost:8765/`，选择配置后点击启动。本地调试优先双击 `scripts\run-virtual-board-gtk.cmd`，QEMU 通过 WSLg 打开原生 GTK 窗口，不走 VNC/noVNC。服务版本为 `2026-11-21-official-linux-hardware-3`。启动器每次先结束本项目默认端口的上一次服务和 QEMU，再启动新服务。旧会话的临时磁盘写入随重启丢弃。
 
 | 配置 ID | 页面用途 | QEMU 文件 | 启动与输入 |
 | --- | --- | --- | --- |
@@ -35,6 +35,8 @@ QEMU 机型名 `mcimx6ull-alientek` 沿用已有脚本，不再改名；它对�
 | `freertos-gui` | 真机图形 ELF | `bin/qemu-system-arm-graphics-linux` | 直接加载 ELF，GDB 校验 DDR，轮询 GT1158 |
 
 LCD 通过 QEMU VNC 和 noVNC 实时显示。鼠标采用清晰的箭头光标，三个图形配置开放指针输入。RESET 使用 QMP `system_reset`，暂停和继续使用 `stop`、`cont`。DS0 按 GPIO1_IO03 的方向和数据寄存器采样。用户 KEY 尚未接线。
+
+x86 Windows 上没有 ARM KVM，QEMU 只能 TCG 单 vCPU 模拟。默认已启用 `tb-size=512`、VNC `lossy=on`、noVNC 低画质/低压缩级别和 500 ms 状态轮询。官方 Linux 冷启动约 1 分 51 秒，FreeRTOS 图形配置约 100% 单核属于 guest 自身运行；如果本地觉得卡，优先用 GTK 启动器，性能取舍详见 [浏览器使用手册](web/README.md#性能取舍)。
 
 ## 正点原子 I.MX6ULL MINI 出厂 Linux 启动路径
 

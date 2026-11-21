@@ -32,10 +32,13 @@ def matching_processes():
             executable = Path(args[0])
             if not executable.is_absolute():
                 executable = cwd / executable
-            if str(executable) in QEMU_FILES and '-vnc' in args:
-                index = args.index('-vnc') + 1
-                if index < len(args) and args[index] == VNC:
+            if str(executable) in QEMU_FILES:
+                if '-vnc' not in args:
                     emulators.add(int(path.name))
+                else:
+                    index = args.index('-vnc') + 1
+                    if index < len(args) and args[index] == VNC:
+                        emulators.add(int(path.name))
             if len(args) >= 2 and Path(args[0]).name.startswith('python'):
                 script = Path(args[1])
                 if not script.is_absolute():
